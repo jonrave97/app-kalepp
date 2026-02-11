@@ -1,0 +1,63 @@
+@import 'tailwindcss';
+
+:root {
+  --primary: #FF6900;
+  --secondary: #666666;
+  --danger: #EF4444;
+  --primary-hover: #de5d02;
+}
+
+.bg-primary {
+  background-color: rgb(255 105 0);
+}
+
+.text-primary {
+  color: rgb(255 105 0);
+}
+
+.text-primary-hover {
+  color: rgb(222 93 2);
+}
+
+.bg-primary-hover {
+  background-color: rgb(222 93 2);
+}
+
+.ring-primary {
+  --tw-ring-color: rgb(255 105 0);
+}
+
+.border-primary {
+  border-color: rgb(255 105 0);
+}
+
+.bg-secondary {
+  background-color: rgb(102 102 102);
+}
+
+.text-secondary {
+  color: rgb(102 102 102);
+}
+
+.bg-danger {
+  background-color: rgb(239 68 68);
+}
+
+.text-danger {
+  color: rgb(239 68 68);
+}
+
+.border-danger {
+  border-color: rgb(239 68 68);
+}
+
+/* Input focus - Solo focus y border */
+input:focus {
+  outline: none;
+  border-color: rgb(102 102 102);
+  box-shadow: 0 0 0 3px rgba(255, 106, 0, 0.023);
+}
+
+.btn-primary:hover {
+  background-color: rgb(222 93 2);
+}
