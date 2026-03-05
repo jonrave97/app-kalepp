@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser';
 import connectDB from './database/db.js';
 
 import userRoutes from './routes/userRoutes.js';
+import positionRoutes from './routes/positionRoutes.js';
 
 dotenv.config(); // Cargar variables de entorno
 
@@ -29,6 +30,7 @@ app.use(cors(
     }
 ));
 app.use('/api/users', userRoutes);
+app.use('/api/positions', positionRoutes);
 app.get('/', (req, res) => 
 {
 	res.send('Backend Funcionando.. !!');
