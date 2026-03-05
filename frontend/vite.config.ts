@@ -15,5 +15,8 @@ export default defineConfig({
 		'@components': path.resolve(__dirname,'src/components'),
 
   	}
+  },
+  server: {
+    open: 'brave'
   }
 })

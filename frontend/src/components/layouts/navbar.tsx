@@ -45,7 +45,7 @@ function Navbar() {
 
                 {/* Logo */}
                 <Link to="/dashboard" className="flex items-center gap-3 shrink-0">
-                    <img src="./kaltire.png" className="h-7" alt="Kaltire Logo" />
+                    <img src="../kaltire.png" className="h-7" alt="Kaltire Logo" />
                 </Link>
 
                 {/* Desktop nav */}

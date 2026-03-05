@@ -6,6 +6,7 @@ import ForgotPassword from './pages/auth/ForgotPasswordPage.tsx';
 import AppLayout from './components/template/appLayout.tsx';
 import DashboardPage from './pages/DashboardPage.tsx';
 import ProfilePage from './pages/ProfilePage.tsx';
+import PositionsPage from './pages/PositionsPage.tsx';
 import { ProtectedRoute } from './guards/ProtectedRoute.tsx';
 import { PublicRoute } from './guards/PublicRoute.tsx';
 
@@ -52,6 +53,10 @@ function App() {
             <Route 
               path='/admin/users'
               element={<div>Admin Users Page</div>}
+            />
+            <Route
+              path='/admin/positions'
+              element={<PositionsPage />}
             />
 
             {/*My Profile */}
