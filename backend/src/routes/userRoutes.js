@@ -1,6 +1,13 @@
 import {Router} from 'express';
 import {loginUser, getProfile, logoutUser}  from '../controllers/authController.js';
 import authMiddleware from '../middlewares/authMiddleware.js';
+import {
+    getUsers,
+    getAllUsersMin,
+    createUser,
+    updateUser,
+    toggleUser,
+} from '../controllers/userController.js';
 import User from '../models/userModel.js';
 import Position from '../models/positionModel.js';
 
@@ -44,6 +51,13 @@ router.patch('/profile/sizes', async (req, res) => {
     }
 });
 router.post('/logout', logoutUser);  // Cerrar sesión del usuario (Protegido)
+
+// ── Rutas administración de usuarios ──────────────────────────────────────────
+router.get('/admin/all',        getAllUsersMin);
+router.get('/admin',            getUsers);
+router.post('/admin',           createUser);
+router.put('/admin/:id',        updateUser);
+router.patch('/admin/:id/toggle', toggleUser);
 
 
 export default router;

@@ -16,7 +16,7 @@ export default defineConfig({
 
   	}
   },
-  server: {
-    open: 'brave'
-  }
+//   server: {
+//     open: 'chrome'
+//   }
 })

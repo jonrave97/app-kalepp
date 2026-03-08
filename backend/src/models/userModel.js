@@ -29,6 +29,30 @@ const userSchema = mongoose.Schema
         type: String,
         required: true,
         trim: true,
+        enum: ['Trabajador', 'Jefatura', 'Encargado de Bodega', 'Administrador'],
+    },
+    disabled: {
+        type: Boolean,
+        default: false
+    },
+    company: {
+        type: String,
+        trim: true,
+        enum: {
+            values: ['Kal Tire', 'Kal Tire Recycling'],
+            message: 'Empresa no válida'
+        },
+    },
+    area: {
+        type: String,
+        trim: true
+    },
+    costCenter: {
+        type: String,
+        trim: true
+    },
+    rut: {
+        type: Number,
     },
     token:{
     	type: String,

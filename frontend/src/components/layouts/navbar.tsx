@@ -96,6 +96,30 @@ function Navbar() {
                                             Cargos
                                         </Link>
                                     </li>
+                                    <li>
+                                        <Link
+                                            to="/admin/warehouses"
+                                            className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                        >
+                                            Bodegas
+                                        </Link>
+                                    </li>
+                                    <li>
+                                        <Link
+                                            to="/admin/categories"
+                                            className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                        >
+                                            Categorías
+                                        </Link>
+                                    </li>
+                                    <li>
+                                        <Link
+                                            to="/admin/epps"
+                                            className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                        >
+                                            EPPs
+                                        </Link>
+                                    </li>
                                 </ul>
                             </div>
                         )}

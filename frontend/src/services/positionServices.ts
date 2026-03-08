@@ -24,3 +24,8 @@ export const togglePosition = async (id: string): Promise<Position> => {
     const response = await API.patch(`/positions/${id}/toggle`);
     return response.data;
 };
+
+export const getAllPositions = async (): Promise<Pick<Position, '_id' | 'name'>[]> => {
+    const response = await API.get('/positions/all');
+    return response.data;
+};

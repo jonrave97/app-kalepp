@@ -8,6 +8,9 @@ import connectDB from './database/db.js';
 
 import userRoutes from './routes/userRoutes.js';
 import positionRoutes from './routes/positionRoutes.js';
+import warehouseRoutes from './routes/warehouseRoutes.js';
+import categoryRoutes from './routes/categoryRoutes.js';
+import eppRoutes from './routes/eppRoutes.js';
 
 dotenv.config(); // Cargar variables de entorno
 
@@ -31,6 +34,9 @@ app.use(cors(
 ));
 app.use('/api/users', userRoutes);
 app.use('/api/positions', positionRoutes);
+app.use('/api/warehouses', warehouseRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/epps', eppRoutes);
 app.get('/', (req, res) => 
 {
 	res.send('Backend Funcionando.. !!');

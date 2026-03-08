@@ -102,6 +102,19 @@ export const deletePosition = async (req, res) => {
     }
 };
 
+// GET /api/positions/all — lista completa para selects (sin paginación)
+export const getAllPositions = async (req, res) => {
+    try {
+        const positions = await Position.find({ disabled: { $ne: true } })
+            .select('_id name')
+            .sort({ name: 1 });
+        res.json(positions);
+    } catch (error) {
+        console.error('Error al obtener todos los cargos:', error);
+        res.status(500).json({ message: 'Error al obtener los cargos' });
+    }
+};
+
 // PATCH /api/positions/:id/toggle
 export const togglePosition = async (req, res) => {
     try {

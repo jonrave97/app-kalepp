@@ -7,6 +7,10 @@ import AppLayout from './components/template/appLayout.tsx';
 import DashboardPage from './pages/DashboardPage.tsx';
 import ProfilePage from './pages/ProfilePage.tsx';
 import PositionsPage from './pages/PositionsPage.tsx';
+import UsersPage from './pages/UsersPage.tsx';
+import WarehousesPage from './pages/WarehousesPage.tsx';
+import CategoriesPage from './pages/CategoriesPage.tsx';
+import EppsPage from './pages/EppsPage.tsx';
 import { ProtectedRoute } from './guards/ProtectedRoute.tsx';
 import { PublicRoute } from './guards/PublicRoute.tsx';
 
@@ -52,11 +56,23 @@ function App() {
             />
             <Route 
               path='/admin/users'
-              element={<div>Admin Users Page</div>}
+              element={<UsersPage />}
             />
             <Route
               path='/admin/positions'
               element={<PositionsPage />}
+            />
+            <Route
+              path='/admin/warehouses'
+              element={<WarehousesPage />}
+            />
+            <Route
+              path='/admin/categories'
+              element={<CategoriesPage />}
+            />
+            <Route
+              path='/admin/epps'
+              element={<EppsPage />}
             />
 
             {/*My Profile */}

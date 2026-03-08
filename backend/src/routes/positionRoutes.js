@@ -2,6 +2,7 @@ import { Router } from 'express';
 import authMiddleware from '../middlewares/authMiddleware.js';
 import {
     getPositions,
+    getAllPositions,
     createPosition,
     updatePosition,
     deletePosition,
@@ -12,6 +13,7 @@ const router = Router();
 
 router.use(authMiddleware);
 
+router.get('/all',       getAllPositions);
 router.get('/',          getPositions);
 router.post('/',         createPosition);
 router.put('/:id',       updatePosition);
