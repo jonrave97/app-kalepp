@@ -11,6 +11,7 @@ import positionRoutes from './routes/positionRoutes.js';
 import warehouseRoutes from './routes/warehouseRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
 import eppRoutes from './routes/eppRoutes.js';
+import requestRoutes from './routes/requestRoutes.js';
 
 dotenv.config(); // Cargar variables de entorno
 
@@ -37,6 +38,7 @@ app.use('/api/positions', positionRoutes);
 app.use('/api/warehouses', warehouseRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/epps', eppRoutes);
+app.use('/api/requests', requestRoutes);
 app.get('/', (req, res) => 
 {
 	res.send('Backend Funcionando.. !!');

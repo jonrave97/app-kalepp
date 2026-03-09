@@ -126,7 +126,7 @@ function Navbar() {
                     </li>
 
                     <li>
-                        <Link to="/requests" className={navLinkClass('/requests')}>
+                        <Link to="/newrequest" className={navLinkClass('/newrequest')}>
                             Solicitudes
                         </Link>
                     </li>

@@ -1,0 +1,72 @@
+import mongoose from 'mongoose';
+
+const { Schema, Types } = mongoose;
+
+const eppItemSchema = new Schema(
+    {
+        eppId:    { type: Types.ObjectId, ref: 'Epps', required: true },
+        quantity: { type: Number, required: true, min: [1, 'La cantidad debe ser mayor a 0'] },
+    },
+    { _id: false }
+);
+
+const requestSchema = new Schema(
+    {
+        code: {
+            type: Number,
+            unique: true,
+        },
+        employee: {
+            type: Types.ObjectId,
+            ref: 'User',
+            required: [true, 'El empleado es obligatorio'],
+        },
+        position: {
+            type: String,
+            trim: true,
+        },
+        warehouse: {
+            type: Types.ObjectId,
+            ref: 'Warehouse',
+            required: [true, 'La bodega es obligatoria'],
+        },
+        reason: {
+            type: String,
+            required: [true, 'El motivo es obligatorio'],
+            enum: {
+                values: ['Nuevo Requerimiento', 'Reposición', 'Deterioro', 'Pérdida'],
+                message: 'Motivo no válido',
+            },
+        },
+        epps: {
+            type: [eppItemSchema],
+            validate: {
+                validator: (arr) => Array.isArray(arr) && arr.length > 0,
+                message: 'Debe incluir al menos un EPP en la solicitud',
+            },
+        },
+        status: {
+            type: String,
+            default: 'Pendiente',
+            enum: ['Pendiente', 'Aprobada', 'Rechazada', 'Entregada'],
+        },
+        date: {
+            type: Date,
+            default: Date.now,
+        },
+    },
+    { timestamps: true }
+);
+
+// Generar código correlativo antes de guardar
+requestSchema.pre('save', async function (next) {
+    if (this.isNew) {
+        const last = await this.constructor.findOne({}, { code: 1 }).sort({ code: -1 });
+        this.code = last ? last.code + 1 : 1;
+    }
+    next();
+});
+
+const Request = mongoose.model('Request', requestSchema);
+
+export default Request;

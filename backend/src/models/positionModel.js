@@ -13,7 +13,7 @@ const positionSchema = new mongoose.Schema({
     },
     epps: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Epp'
+        ref: 'Epps'
     }]
 }, {
     timestamps: true // Agrega createdAt y updatedAt automáticamente
