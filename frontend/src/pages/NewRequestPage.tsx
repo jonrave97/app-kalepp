@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, Plus, Trash2, ShoppingCart, Send } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ChevronDown, Plus, Trash2, ShoppingCart, Send, ImagePlus, X, Loader2 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useNewRequest } from '@/hooks/requests/useNewRequest';
 import { REQUEST_REASONS } from '@/types/request';
@@ -87,6 +87,112 @@ function SearchSelect({ options, value, onChange, placeholder = 'Seleccionar...'
     );
 }
 
+// ─── ImageDropzone ────────────────────────────────────────────────────────────
+interface ImageDropzoneProps {
+    images: File[];
+    onAdd: (files: File[]) => Promise<void>;
+    onRemove: (index: number) => void;
+    isCompressing: boolean;
+    required?: boolean;
+    error?: string;
+}
+
+function ImageDropzone({ images, onAdd, onRemove, isCompressing, required, error }: ImageDropzoneProps) {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const [dragging, setDragging] = useState(false);
+
+    const handleFiles = useCallback((files: FileList | null) => {
+        if (!files || files.length === 0) return;
+        onAdd(Array.from(files));
+    }, [onAdd]);
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setDragging(false);
+        handleFiles(e.dataTransfer.files);
+    };
+
+    const previews = images.map(f => URL.createObjectURL(f));
+
+    return (
+        <div className="space-y-3">
+            {/* Drop area */}
+            <div
+                onDragOver={e => { e.preventDefault(); setDragging(true); }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={handleDrop}
+                onClick={() => !isCompressing && inputRef.current?.click()}
+                className={`relative flex flex-col items-center justify-center gap-2 rounded-xl
+                            border-2 border-dashed p-6 cursor-pointer transition-colors select-none
+                            ${dragging
+                                ? 'border-primary bg-primary/5'
+                                : 'border-gray-200 bg-gray-50 hover:border-primary/50 hover:bg-primary/5'}
+                            ${isCompressing ? 'opacity-60 cursor-wait' : ''}`}
+            >
+                <input
+                    ref={inputRef}
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.webp"
+                    multiple
+                    className="hidden"
+                    onChange={e => handleFiles(e.target.files)}
+                    onClick={e => { (e.target as HTMLInputElement).value = ''; }}
+                />
+
+                {isCompressing ? (
+                    <>
+                        <Loader2 className="w-7 h-7 text-primary animate-spin" />
+                        <p className="text-sm text-primary font-medium">Comprimiendo imágenes…</p>
+                    </>
+                ) : (
+                    <>
+                        <ImagePlus className="w-7 h-7 text-gray-300" />
+                        <p className="text-sm text-gray-500">
+                            <span className="text-primary font-medium">Haz clic</span> o arrastra imágenes aquí
+                        </p>
+                        <p className="text-xs text-gray-400">JPG, PNG, WEBP · Máx. 10 MB por imagen · Máx. 5 imágenes</p>
+                        {required && images.length === 0 && (
+                            <span className="text-xs text-red-500 font-medium">* Obligatorio para motivo "Deterioro"</span>
+                        )}
+                    </>
+                )}
+            </div>
+
+            {/* Previews */}
+            {images.length > 0 && (
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                    {images.map((_file, i) => (
+                        <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200">
+                            <img
+                                src={previews[i]}
+                                alt={`Imagen ${i + 1}`}
+                                className="w-full h-full object-cover"
+                                onLoad={() => URL.revokeObjectURL(previews[i])}
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors" />
+                            <button
+                                type="button"
+                                onClick={e => { e.stopPropagation(); onRemove(i); }}
+                                className="absolute top-1 right-1 p-0.5 rounded-full bg-white/90 text-gray-600
+                                           opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all shadow"
+                                title="Eliminar imagen"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="absolute bottom-1 left-1 text-xs text-white font-medium
+                                             bg-black/40 px-1 rounded">
+                                {i + 1}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {error && <p className="text-xs text-red-500">{error}</p>}
+        </div>
+    );
+}
+
 // ─── Página principal ─────────────────────────────────────────────────────────
 function NewRequestPage() {
     const {
@@ -102,12 +208,15 @@ function NewRequestPage() {
         cart,
         removeFromCart,
         updateCartQuantity,
+        images,
+        addImages,
+        removeImage,
+        isCompressing,
         selectedWarehouse,
         setSelectedWarehouse,
         reason,
         setReason,
         submitting,
-        submitError,
         setSubmitError,
         submitRequest,
     } = useNewRequest();
@@ -151,9 +260,8 @@ function NewRequestPage() {
             await Swal.fire({
                 icon: 'success',
                 title: 'Solicitud enviada',
-                text: 'Tu solicitud fue registrada correctamente.',
-                timer: 2000,
-                showConfirmButton: false,
+                text: 'La solicitud fue enviada correctamente y será revisada por el aprobador.',
+                confirmButtonText: 'Aceptar',
             });
         }
     };
@@ -318,18 +426,35 @@ function NewRequestPage() {
                         </div>
                     </div>
 
-                    {/* Error general */}
-                    {submitError && (
-                        <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3">
-                            {submitError}
+                    {/* ── Sección: Evidencia fotográfica ── */}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-sm font-semibold text-gray-700">
+                                3. Adjuntar evidencia fotográfica
+                                {reason === 'Deterioro' && (
+                                    <span className="ml-2 text-xs text-red-500 font-normal">* requerida</span>
+                                )}
+                            </h2>
+                            {images.length > 0 && (
+                                <span className="text-xs text-gray-400">
+                                    {images.length} / 5 imagen{images.length !== 1 ? 'es' : ''}
+                                </span>
+                            )}
                         </div>
-                    )}
+                        <ImageDropzone
+                            images={images}
+                            onAdd={addImages}
+                            onRemove={removeImage}
+                            isCompressing={isCompressing}
+                            required={reason === 'Deterioro'}
+                        />
+                    </div>
 
                     {/* Botón enviar */}
                     <div className="flex justify-end">
                         <button
                             type="submit"
-                            disabled={submitting || loadingCatalogs}
+                            disabled={submitting || loadingCatalogs || isCompressing}
                             onClick={() => setSubmitError('')}
                             className="flex items-center gap-2 px-6 py-3 text-sm font-medium
                                        text-white bg-primary rounded-xl hover:opacity-85 transition-opacity

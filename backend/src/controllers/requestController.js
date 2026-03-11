@@ -1,5 +1,21 @@
+import multer from 'multer';
 import Request from '../models/requestModel.js';
 import User from '../models/userModel.js';
+import Epp from '../models/eppModel.js';
+import Warehouse from '../models/warehouseModel.js';
+import { sendRequestEmail } from '../helpers/mailer.js';
+
+const ALLOWED_MIME = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const MAX_IMAGES   = 5;
+
+export const upload = multer({
+    storage: multer.memoryStorage(),
+    limits:  { fileSize: 10 * 1024 * 1024 }, // 10 MB per file
+    fileFilter: (_req, file, cb) => {
+        if (ALLOWED_MIME.includes(file.mimetype)) return cb(null, true);
+        cb(new Error('Formato no permitido. Solo JPG, PNG o WEBP'));
+    },
+});
 
 // GET /api/requests/my-epps
 export const getMyEpps = async (req, res) => {
@@ -26,7 +42,22 @@ export const getMyEpps = async (req, res) => {
 // POST /api/requests
 export const createRequest = async (req, res) => {
     try {
-        const { warehouse, reason, epps } = req.body;
+        const { warehouse, reason } = req.body;
+
+        // epps arrives as a JSON string from multipart FormData
+        let epps;
+        try {
+            epps = JSON.parse(req.body.epps || '[]');
+        } catch {
+            return res.status(400).json({ message: 'Formato inválido de EPPs' });
+        }
+
+        const files = req.files || [];
+
+        // Validar límite de imágenes
+        if (files.length > MAX_IMAGES) {
+            return res.status(400).json({ message: `Máximo ${MAX_IMAGES} imágenes permitidas` });
+        }
 
         // Validaciones básicas
         if (!warehouse) {
@@ -37,6 +68,11 @@ export const createRequest = async (req, res) => {
         }
         if (!Array.isArray(epps) || epps.length === 0) {
             return res.status(400).json({ message: 'Debe incluir al menos un EPP en la solicitud' });
+        }
+
+        // Validar imagen obligatoria para "Deterioro"
+        if (reason === 'Deterioro' && files.length === 0) {
+            return res.status(400).json({ message: 'El motivo "Deterioro" requiere al menos una imagen de evidencia' });
         }
 
         // Validar que todas las cantidades sean > 0
@@ -75,6 +111,12 @@ export const createRequest = async (req, res) => {
         });
 
         res.status(201).json(request);
+
+        // Email: send asynchronously so it never delays the response
+        _sendEmailAsync(request, user, warehouse, epps, files).catch(err =>
+            console.error('[mailer] Error al enviar correo:', err)
+        );
+
     } catch (error) {
         console.error('Error al crear solicitud:', error);
         if (error.name === 'ValidationError') {
@@ -84,3 +126,44 @@ export const createRequest = async (req, res) => {
         res.status(500).json({ message: 'Error al crear la solicitud' });
     }
 };
+
+// ─── Internal: email helper ──────────────────────────────────────────────────
+async function _sendEmailAsync(request, user, warehouseId, eppItems, files) {
+    // Get approver (boss) emails
+    const bossIds = (user.bosses || []).map(b => b._id).filter(Boolean);
+    const approvers = bossIds.length > 0
+        ? await User.find({ _id: { $in: bossIds } }).select('name email')
+        : [];
+
+    if (approvers.length === 0) {
+        console.warn('[mailer] Sin aprobadores configurados, correo omitido');
+        return;
+    }
+
+    // Populate EPP names for email body
+    const eppIds   = eppItems.map(e => e.eppId);
+    const eppDocs  = await Epp.find({ _id: { $in: eppIds } }).select('name code');
+    const eppMap   = Object.fromEntries(eppDocs.map(e => [e._id.toString(), e]));
+
+    const enrichedEpps = eppItems.map(e => ({
+        ...e,
+        name: eppMap[e.eppId.toString()]?.name ?? '—',
+        code: eppMap[e.eppId.toString()]?.code ?? '',
+    }));
+
+    // Get warehouse display name
+    const warehouseDoc  = await Warehouse.findById(warehouseId).select('name code');
+    const warehouseName = warehouseDoc
+        ? `${warehouseDoc.code} — ${warehouseDoc.name}`
+        : warehouseId;
+
+    await sendRequestEmail({
+        request,
+        employeeName:  user.name,
+        positionName:  user.position?.name ?? '',
+        warehouseName,
+        eppItems:      enrichedEpps,
+        approvers,
+        images:        files,
+    });
+}

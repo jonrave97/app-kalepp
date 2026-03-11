@@ -1,8 +1,14 @@
 import { useState, useCallback } from 'react';
+import Swal from 'sweetalert2';
+import imageCompression from 'browser-image-compression';
 import type { Epp } from '@/types/epp';
 import type { CreateRequestPayload, RequestReason } from '@/types/request';
 import { getAllWarehouses } from '@/services/warehouseServices';
 import { createRequest, getMyEpps } from '@/services/requestServices';
+
+const MAX_IMAGES     = 5;
+const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+const ALLOWED_TYPES  = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
 export interface CartItem {
     eppId: string;
@@ -25,6 +31,10 @@ export function useNewRequest() {
 
     // Carrito
     const [cart, setCart] = useState<CartItem[]>([]);
+
+    // Imágenes
+    const [images,       setImages]       = useState<File[]>([]);
+    const [isCompressing, setIsCompressing] = useState(false);
 
     // Estado de envío
     const [submitting, setSubmitting] = useState(false);
@@ -87,20 +97,87 @@ export function useNewRequest() {
         );
     };
 
-    // Enviar solicitud
+    // ── Imágenes ──────────────────────────────────────────────────────────────
+    const addImages = useCallback(async (incoming: File[]) => {
+        setSubmitError('');
+
+        const validType = incoming.filter(f => ALLOWED_TYPES.includes(f.type));
+        if (validType.length < incoming.length) {
+            Swal.fire({ icon: 'warning', title: 'Formato no permitido', text: 'Formato de imagen no permitido. Solo se aceptan JPG, PNG o WEBP.' });
+            if (validType.length === 0) return;
+        }
+
+        const validSize = validType.filter(f => f.size <= MAX_SIZE_BYTES);
+        if (validSize.length < validType.length) {
+            Swal.fire({ icon: 'warning', title: 'Imagen demasiado grande', text: 'La imagen seleccionada es demasiado grande. El tamaño máximo es 10 MB.' });
+            if (validSize.length === 0) return;
+        }
+
+        if (validSize.length === 0) return;
+
+        // Check current slot count before async compression
+        const currentCount = images.length;
+        if (currentCount >= MAX_IMAGES) {
+            Swal.fire({ icon: 'error', title: 'Límite alcanzado', text: `Solo se permite subir un máximo de ${MAX_IMAGES} imágenes.` });
+            return;
+        }
+
+        const slots = MAX_IMAGES - currentCount;
+        if (validSize.length > slots) {
+            Swal.fire({ icon: 'error', title: 'Límite de imágenes', text: `Solo se permite subir un máximo de ${MAX_IMAGES} imágenes.` });
+        }
+
+        // Compress and add
+        try {
+            setIsCompressing(true);
+            const toCompress = validSize.slice(0, slots);
+            const compressed = await Promise.all(
+                toCompress.map(async file => {
+                    try {
+                        return await imageCompression(file, {
+                            maxSizeMB:        0.5,
+                            maxWidthOrHeight: 1600,
+                            useWebWorker:     true,
+                            fileType:         'image/jpeg',
+                            initialQuality:   0.7,
+                        });
+                    } catch {
+                        return file; // fallback to original
+                    }
+                })
+            );
+            setImages(prev => {
+                const available = MAX_IMAGES - prev.length;
+                return [...prev, ...compressed.slice(0, available)];
+            });
+        } finally {
+            setIsCompressing(false);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [images.length]);
+
+    const removeImage = (index: number) => {
+        setImages(prev => prev.filter((_, i) => i !== index));
+    };
+
+    // ── Submit ────────────────────────────────────────────────────────────────
     const submitRequest = useCallback(async (): Promise<boolean> => {
         setSubmitError('');
 
         if (cart.length === 0) {
-            setSubmitError('Debe agregar al menos un EPP a la solicitud');
+            await Swal.fire({ icon: 'warning', title: 'Sin EPPs seleccionados', text: 'Debe seleccionar al menos un EPP para generar la solicitud.' });
             return false;
         }
         if (!selectedWarehouse) {
-            setSubmitError('Debe seleccionar una bodega');
+            await Swal.fire({ icon: 'warning', title: 'Bodega requerida', text: 'Debe seleccionar una bodega.' });
             return false;
         }
         if (!reason) {
-            setSubmitError('Debe seleccionar un motivo');
+            await Swal.fire({ icon: 'warning', title: 'Motivo requerido', text: 'Debe seleccionar un motivo de solicitud.' });
+            return false;
+        }
+        if (reason === 'Deterioro' && images.length === 0) {
+            await Swal.fire({ icon: 'warning', title: 'Evidencia requerida', text: 'Cuando el motivo es deterioro debe adjuntar al menos una evidencia fotográfica.' });
             return false;
         }
 
@@ -112,20 +189,21 @@ export function useNewRequest() {
 
         try {
             setSubmitting(true);
-            await createRequest(payload);
+            await createRequest(payload, images);
             // Limpiar formulario tras éxito
             setCart([]);
             setSelectedWarehouse('');
             setReason('');
+            setImages([]);
             return true;
         } catch (err: unknown) {
             const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-            setSubmitError(msg || 'Error al enviar la solicitud');
+            await Swal.fire({ icon: 'error', title: 'Error al enviar', text: msg || 'No se pudo enviar la solicitud. Intenta nuevamente.' });
             return false;
         } finally {
             setSubmitting(false);
         }
-    }, [cart, selectedWarehouse, reason]);
+    }, [cart, selectedWarehouse, reason, images]);
 
     return {
         // Catálogos
@@ -143,6 +221,11 @@ export function useNewRequest() {
         cart,
         removeFromCart,
         updateCartQuantity,
+        // Imágenes
+        images,
+        addImages,
+        removeImage,
+        isCompressing,
         // Bodega & motivo
         selectedWarehouse,
         setSelectedWarehouse,
