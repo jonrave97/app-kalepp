@@ -126,6 +126,26 @@ function buildHtml({ request, employeeName, positionName, warehouseName, eppItem
                 </td>
               </tr>
 
+              <!-- Button -->
+              <tr>
+                <td style="padding-top:26px;text-align:center;">
+                  <a href="${process.env.FRONTEND_URL}/warehousemanager"
+                     style="
+                       display:inline-block;
+                       background:rgb(255 105 0);
+                       color:#ffffff;
+                       padding:12px 22px;
+                       border-radius:6px;
+                       text-decoration:none;
+                       font-weight:bold;
+                       font-size:14px;
+                       letter-spacing:0.3px;
+                     ">
+                    Ver solicitud en el sistema
+                  </a>
+                </td>
+              </tr>
+
               <!-- Inline images -->
               ${inlineImgSection}
 
