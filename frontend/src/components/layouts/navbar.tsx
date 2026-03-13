@@ -34,6 +34,8 @@ function Navbar() {
         navigate('/login');
     };
 
+    const isAdmin = auth?.rol === 'Administrador' || auth?.role === 'Administrador';
+
     const navLinkClass = (path: string) =>
         `block py-2 px-3 text-white rounded transition-all
          hover:bg-white/10 md:hover:text-accent active:scale-95 active:bg-white/20
@@ -64,6 +66,7 @@ function Navbar() {
                     </li>
 
                     {/* Dropdown Administración */}
+                    {isAdmin && (
                     <li className="relative" ref={adminRef}>
                         <button
                             onClick={() => setAdminOpen(prev => !prev)}
@@ -124,6 +127,7 @@ function Navbar() {
                             </div>
                         )}
                     </li>
+                    )}
 
                     <li>
                         <Link to="/newrequest" className={navLinkClass('/newrequest')}>
@@ -187,6 +191,7 @@ function Navbar() {
                         </li>
 
                         {/* Accordion Administración (móvil) */}
+                        {isAdmin && (
                         <li>
                             <button
                                 onClick={() => setAdminOpen(prev => !prev)}
@@ -220,6 +225,7 @@ function Navbar() {
                                 </ul>
                             )}
                         </li>
+                        )}
 
                         <li>
                             <Link to="/requests" className={navLinkClass('/requests')}>

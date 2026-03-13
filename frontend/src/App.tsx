@@ -15,6 +15,7 @@ import EppsPage from './pages/EppsPage.tsx';
 import NewRequestPage from './pages/NewRequestPage.tsx';
 import { ProtectedRoute } from './guards/ProtectedRoute.tsx';
 import { PublicRoute } from './guards/PublicRoute.tsx';
+import { AdminRoute } from './guards/AdminRoute.tsx';
 
 
 // import './App.css'
@@ -58,29 +59,27 @@ function App() {
             />
             <Route 
               path='/admin/users'
-              element={<UsersPage />}
+              element={<AdminRoute><UsersPage /></AdminRoute>}
             />
             <Route
               path='/admin/positions'
-              element={<PositionsPage />}
+              element={<AdminRoute><PositionsPage /></AdminRoute>}
             />
             <Route
               path='/admin/warehouses'
-              element={<WarehousesPage />}
+              element={<AdminRoute><WarehousesPage /></AdminRoute>}
             />
-            <Route              path='/admin/warehouse/:id'
-              element={<WarehouseDetailPage />}
-            />
-            <Route              path='/admin/warehouse/:id'
-              element={<WarehouseDetailPage />}
+            <Route
+              path='/admin/warehouse/:id'
+              element={<AdminRoute><WarehouseDetailPage /></AdminRoute>}
             />
             <Route
               path='/admin/categories'
-              element={<CategoriesPage />}
+              element={<AdminRoute><CategoriesPage /></AdminRoute>}
             />
             <Route
               path='/admin/epps'
-              element={<EppsPage />}
+              element={<AdminRoute><EppsPage /></AdminRoute>}
             />
             <Route
               path='/newrequest'
