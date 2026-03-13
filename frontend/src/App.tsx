@@ -9,6 +9,7 @@ import ProfilePage from './pages/ProfilePage.tsx';
 import PositionsPage from './pages/PositionsPage.tsx';
 import UsersPage from './pages/UsersPage.tsx';
 import WarehousesPage from './pages/WarehousesPage.tsx';
+import WarehouseDetailPage from './pages/WarehouseDetailPage.tsx';
 import CategoriesPage from './pages/CategoriesPage.tsx';
 import EppsPage from './pages/EppsPage.tsx';
 import NewRequestPage from './pages/NewRequestPage.tsx';
@@ -66,6 +67,12 @@ function App() {
             <Route
               path='/admin/warehouses'
               element={<WarehousesPage />}
+            />
+            <Route              path='/admin/warehouse/:id'
+              element={<WarehouseDetailPage />}
+            />
+            <Route              path='/admin/warehouse/:id'
+              element={<WarehouseDetailPage />}
             />
             <Route
               path='/admin/categories'

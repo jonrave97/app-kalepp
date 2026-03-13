@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, ToggleLeft, ToggleRight, Search } from 'lucide-react';
+import { Plus, Pencil, ToggleLeft, ToggleRight, Search, Eye } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { useWarehouses } from '@/hooks/warehouses/useWarehouses';
 import * as warehouseServices from '@/services/warehouseServices';
@@ -111,6 +112,7 @@ function WarehouseModal({ warehouse, onClose, onSaved }: WarehouseModalProps) {
 
 // ─── Página principal ────────────────────────────────────────────────────────
 function WarehousesPage() {
+    const navigate = useNavigate();
     const {
         warehouses,
         total,
@@ -237,6 +239,13 @@ function WarehousesPage() {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
+                                        <button
+                                            onClick={() => navigate(`/admin/warehouse/${warehouse._id}`)}
+                                            title="Ver solicitudes"
+                                            className="p-2 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors"
+                                        >
+                                            <Eye className="w-4 h-4" />
+                                        </button>
                                         <button
                                             onClick={() => handleToggle(warehouse)}
                                             title={warehouse.disabled ? 'Habilitar' : 'Deshabilitar'}

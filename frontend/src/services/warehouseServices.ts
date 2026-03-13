@@ -6,6 +6,11 @@ export const getWarehouses = async (page = 1, search = ''): Promise<WarehousesRe
     return response.data;
 };
 
+export const getWarehouseById = async (id: string): Promise<Warehouse> => {
+    const response = await API.get(`/warehouses/${id}`);
+    return response.data;
+};
+
 export const getAllWarehouses = async (): Promise<Pick<Warehouse, '_id' | 'code' | 'name'>[]> => {
     const response = await API.get('/warehouses/all');
     return response.data;

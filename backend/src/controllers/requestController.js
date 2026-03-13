@@ -127,6 +127,67 @@ export const createRequest = async (req, res) => {
     }
 };
 
+// GET /api/requests?warehouse=id&page=1&limit=10&search=texto
+export const getRequests = async (req, res) => {
+    try {
+        const page      = Math.max(1, parseInt(req.query.page)  || 1);
+        const limit     = Math.max(1, parseInt(req.query.limit) || 10);
+        const search    = (req.query.search || '').trim();
+        const warehouseId = req.query.warehouse;
+
+        const filter = {};
+        if (warehouseId) filter.warehouse = warehouseId;
+
+        if (search) {
+            const matchedUsers = await User.find(
+                { name: { $regex: search, $options: 'i' } }
+            ).select('_id');
+            const userIds = matchedUsers.map(u => u._id);
+            const codeNum = parseInt(search);
+            const orClauses = [{ employee: { $in: userIds } }];
+            if (!isNaN(codeNum)) orClauses.push({ code: codeNum });
+            filter.$or = orClauses;
+        }
+
+        const total    = await Request.countDocuments(filter);
+        const requests = await Request.find(filter)
+            .populate('employee', 'name')
+            .sort({ date: -1 })
+            .skip((page - 1) * limit)
+            .limit(limit);
+
+        res.json({
+            requests,
+            total,
+            page,
+            pages: Math.ceil(total / limit),
+        });
+    } catch (error) {
+        console.error('Error al obtener solicitudes:', error);
+        res.status(500).json({ message: 'Error al obtener las solicitudes' });
+    }
+};
+
+// DELETE /api/requests/:id
+export const deleteRequest = async (req, res) => {
+    try {
+        const user = await User.findById(req.userId).select('rol role');
+        const userRole = user?.rol || user?.role;
+        if (userRole !== 'Administrador') {
+            return res.status(403).json({ message: 'No tienes permisos para eliminar solicitudes' });
+        }
+
+        const request = await Request.findByIdAndDelete(req.params.id);
+        if (!request) {
+            return res.status(404).json({ message: 'Solicitud no encontrada' });
+        }
+        res.json({ message: 'Solicitud eliminada correctamente' });
+    } catch (error) {
+        console.error('Error al eliminar solicitud:', error);
+        res.status(500).json({ message: 'Error al eliminar la solicitud' });
+    }
+};
+
 // ─── Internal: email helper ──────────────────────────────────────────────────
 async function _sendEmailAsync(request, user, warehouseId, eppItems, files) {
     // Get approver (boss) emails

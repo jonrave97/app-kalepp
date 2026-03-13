@@ -50,9 +50,19 @@ const requestSchema = new Schema(
             default: 'Pendiente',
             enum: ['Pendiente', 'Aprobada', 'Rechazada', 'Entregada'],
         },
+        stock: {
+            type: String,
+            enum: ['Con Stock', 'Sin Stock'],
+        },
         date: {
             type: Date,
             default: Date.now,
+        },
+        approveDate: {
+            type: Date,
+        },
+        deliveryDate: {
+            type: Date,
         },
     },
     { timestamps: true }

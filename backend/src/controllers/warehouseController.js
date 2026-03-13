@@ -130,6 +130,20 @@ export const updateWarehouse = async (req, res) => {
     }
 };
 
+// GET /api/warehouses/:id
+export const getWarehouseById = async (req, res) => {
+    try {
+        const warehouse = await Warehouse.findById(req.params.id);
+        if (!warehouse) {
+            return res.status(404).json({ message: 'Bodega no encontrada' });
+        }
+        res.json(warehouse);
+    } catch (error) {
+        console.error('Error al obtener bodega:', error);
+        res.status(500).json({ message: 'Error al obtener la bodega' });
+    }
+};
+
 // PATCH /api/warehouses/:id/toggle
 export const toggleWarehouse = async (req, res) => {
     try {
