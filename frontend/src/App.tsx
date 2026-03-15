@@ -15,9 +15,12 @@ import EppsPage from './pages/EppsPage.tsx';
 import NewRequestPage from './pages/NewRequestPage.tsx';
 import MyRequestsPage from './pages/MyRequestsPage.tsx';
 import NewSpecialRequestPage from './pages/NewSpecialRequestPage.tsx';
+import KitsPage from './pages/KitsPage.tsx';
+import KitRequestPage from './pages/KitRequestPage.tsx';
 import { ProtectedRoute } from './guards/ProtectedRoute.tsx';
 import { PublicRoute } from './guards/PublicRoute.tsx';
 import { AdminRoute } from './guards/AdminRoute.tsx';
+import { HRRoute } from './guards/HRRoute.tsx';
 
 
 // import './App.css'
@@ -84,6 +87,10 @@ function App() {
               element={<AdminRoute><EppsPage /></AdminRoute>}
             />
             <Route
+              path='/admin/kits'
+              element={<AdminRoute><KitsPage /></AdminRoute>}
+            />
+            <Route
               path='/newrequest'
               element={<NewRequestPage />}
             />
@@ -94,6 +101,10 @@ function App() {
             <Route
               path='/my-requests'
               element={<MyRequestsPage />}
+            />
+            <Route
+              path='/requests/kit-request'
+              element={<HRRoute><KitRequestPage /></HRRoute>}
             />
 
             {/*My Profile */}

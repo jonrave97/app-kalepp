@@ -90,11 +90,16 @@ export const createRequest = async (req, res) => {
             return res.status(404).json({ message: 'Usuario no encontrado' });
         }
 
-        // Validar que todos los EPPs solicitados pertenezcan al cargo del trabajador
-        const allowedIds = new Set((user.position?.epps ?? []).map(e => e._id.toString()));
-        const unauthorized = epps.some(e => !allowedIds.has(e.eppId.toString()));
-        if (unauthorized) {
-            return res.status(403).json({ message: 'Uno o más EPPs no están permitidos para su cargo' });
+        // HR users creating Kit Inicial Trabajador Nuevo bypass position EPP check
+        const isHRKitRequest = user.area === 'HUMAN RESOURCES' && reason === 'Kit Inicial Trabajador Nuevo';
+
+        if (!isHRKitRequest) {
+            // Validar que todos los EPPs solicitados pertenezcan al cargo del trabajador
+            const allowedIds = new Set((user.position?.epps ?? []).map(e => e._id.toString()));
+            const unauthorized = epps.some(e => !allowedIds.has(e.eppId.toString()));
+            if (unauthorized) {
+                return res.status(403).json({ message: 'Uno o más EPPs no están permitidos para su cargo' });
+            }
         }
 
         const positionName = user.position?.name ?? '';
@@ -110,12 +115,23 @@ export const createRequest = async (req, res) => {
             })),
         });
 
+        // Auto-approve for HR Kit Initial requests
+        if (isHRKitRequest) {
+            request.status      = 'Aprobada';
+            request.approver    = req.userId;
+            request.approveDate = new Date();
+            request.bosses      = [];
+            await request.save();
+        }
+
         res.status(201).json(request);
 
-        // Email: send asynchronously so it never delays the response
-        _sendEmailAsync(request, user, warehouse, epps, files).catch(err =>
-            console.error('[mailer] Error al enviar correo:', err)
-        );
+        // Send email only for non-auto-approved requests
+        if (!isHRKitRequest) {
+            _sendEmailAsync(request, user, warehouse, epps, files).catch(err =>
+                console.error('[mailer] Error al enviar correo:', err)
+            );
+        }
 
     } catch (error) {
         console.error('Error al crear solicitud:', error);

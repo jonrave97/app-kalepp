@@ -34,7 +34,7 @@ const requestSchema = new Schema(
             type: String,
             required: [true, 'El motivo es obligatorio'],
             enum: {
-                values: ['Nuevo Requerimiento', 'Reposición', 'Deterioro', 'Pérdida'],
+                values: ['Nuevo Requerimiento', 'Reposición', 'Deterioro', 'Pérdida', 'Kit Inicial Trabajador Nuevo'],
                 message: 'Motivo no válido',
             },
         },

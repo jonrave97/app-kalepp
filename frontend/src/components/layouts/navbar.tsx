@@ -129,6 +129,14 @@ function Navbar() {
                                             EPPs
                                         </Link>
                                     </li>
+                                    <li>
+                                        <Link
+                                            to="/admin/kits"
+                                            className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                        >
+                                            Kits
+                                        </Link>
+                                    </li>
                                 </ul>
                             </div>
                         )}
@@ -141,7 +149,7 @@ function Navbar() {
                             onClick={() => setRequestsOpen(prev => !prev)}
                             className={`flex items-center gap-1 py-2 px-3 text-white rounded transition-all
                                         cursor-pointer hover:bg-white/10 hover:text-accent active:scale-95
-                                        ${location.pathname === '/newrequest' || location.pathname === '/my-requests' || location.pathname === '/requests/new-special' ? 'text-accent font-semibold' : ''}`}
+                                        ${location.pathname === '/newrequest' || location.pathname === '/my-requests' || location.pathname === '/requests/new-special' || location.pathname === '/requests/kit-request' ? 'text-accent font-semibold' : ''}`}
                         >
                             Solicitudes
                             <ChevronDown
@@ -176,6 +184,16 @@ function Navbar() {
                                             Mis solicitudes
                                         </Link>
                                     </li>
+                                    {auth?.area === 'HUMAN RESOURCES' && (
+                                    <li>
+                                        <Link
+                                            to="/requests/kit-request"
+                                            className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                        >
+                                            Solicitud Kit Inicial
+                                        </Link>
+                                    </li>
+                                    )}
                                 </ul>
                             </div>
                         )}
@@ -268,6 +286,38 @@ function Navbar() {
                                             Cargos
                                         </Link>
                                     </li>
+                                    <li>
+                                        <Link
+                                            to="/admin/warehouses"
+                                            className="block py-2 px-2 text-white/80 text-sm rounded hover:text-white hover:bg-white/10 transition-colors"
+                                        >
+                                            Bodegas
+                                        </Link>
+                                    </li>
+                                    <li>
+                                        <Link
+                                            to="/admin/categories"
+                                            className="block py-2 px-2 text-white/80 text-sm rounded hover:text-white hover:bg-white/10 transition-colors"
+                                        >
+                                            Categorías
+                                        </Link>
+                                    </li>
+                                    <li>
+                                        <Link
+                                            to="/admin/epps"
+                                            className="block py-2 px-2 text-white/80 text-sm rounded hover:text-white hover:bg-white/10 transition-colors"
+                                        >
+                                            EPPs
+                                        </Link>
+                                    </li>
+                                    <li>
+                                        <Link
+                                            to="/admin/kits"
+                                            className="block py-2 px-2 text-white/80 text-sm rounded hover:text-white hover:bg-white/10 transition-colors"
+                                        >
+                                            Kits
+                                        </Link>
+                                    </li>
                                 </ul>
                             )}
                         </li>
@@ -279,7 +329,7 @@ function Navbar() {
                                 onClick={() => setRequestsOpen(prev => !prev)}
                                 className={`w-full flex items-center justify-between py-2 px-3 text-white rounded
                                             hover:bg-white/10 transition-all active:scale-95
-                                            ${location.pathname === '/newrequest' || location.pathname === '/my-requests' || location.pathname === '/requests/new-special' ? 'bg-white/10 font-semibold' : ''}`}
+                                            ${location.pathname === '/newrequest' || location.pathname === '/my-requests' || location.pathname === '/requests/new-special' || location.pathname === '/requests/kit-request' ? 'bg-white/10 font-semibold' : ''}`}
                             >
                                 Solicitudes
                                 <ChevronDown
@@ -312,6 +362,16 @@ function Navbar() {
                                             Mis solicitudes
                                         </Link>
                                     </li>
+                                    {auth?.area === 'HUMAN RESOURCES' && (
+                                    <li>
+                                        <Link
+                                            to="/requests/kit-request"
+                                            className="block py-2 px-2 text-white/80 text-sm rounded hover:text-white hover:bg-white/10 transition-colors"
+                                        >
+                                            Solicitud Kit Inicial
+                                        </Link>
+                                    </li>
+                                    )}
                                 </ul>
                             )}
                         </li>
