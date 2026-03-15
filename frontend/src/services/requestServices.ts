@@ -16,8 +16,12 @@ export interface AdminRequest {
     status: string;
     stock?: string;
     position: string;
+    reason: string;
+    observation?: string;
     employee: { _id: string; name: string } | string;
-    epps: { eppId: string; quantity: number }[];
+    approver?: { _id: string; name: string } | string;
+    approveDate?: string;
+    epps: { epp: { _id: string; name: string; code?: string } | string; quantity: number }[];
     deliveryDate?: string;
     createdAt: string;
     updatedAt: string;
@@ -31,6 +35,18 @@ export const getAdminRequests = async (
 ): Promise<AdminRequestsResponse> => {
     const response = await API.get('/requests', {
         params: { warehouse: warehouseId, page, search, limit },
+    });
+    return response.data;
+};
+
+export const getMyRequests = async (
+    employeeId: string,
+    page = 1,
+    search = '',
+    limit = 10,
+): Promise<AdminRequestsResponse> => {
+    const response = await API.get('/requests', {
+        params: { employee: employeeId, page, search, limit },
     });
     return response.data;
 };

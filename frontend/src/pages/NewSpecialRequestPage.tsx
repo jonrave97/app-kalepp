@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronDown, Plus, Trash2, ShoppingCart, Send, ImagePlus, X, Loader2 } from 'lucide-react';
 import Swal from 'sweetalert2';
-import { useNewRequest } from '@/hooks/requests/useNewRequest';
+import { useNewSpecialRequest } from '@/hooks/requests/useNewSpecialRequest';
 import { REQUEST_REASONS } from '@/types/request';
 
 // ─── SearchSelect ─────────────────────────────────────────────────────────────
@@ -116,7 +116,6 @@ function ImageDropzone({ images, onAdd, onRemove, isCompressing, required, error
 
     return (
         <div className="space-y-3">
-            {/* Drop area */}
             <div
                 onDragOver={e => { e.preventDefault(); setDragging(true); }}
                 onDragLeave={() => setDragging(false)}
@@ -158,7 +157,6 @@ function ImageDropzone({ images, onAdd, onRemove, isCompressing, required, error
                 )}
             </div>
 
-            {/* Previews */}
             {images.length > 0 && (
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                     {images.map((_file, i) => (
@@ -194,7 +192,7 @@ function ImageDropzone({ images, onAdd, onRemove, isCompressing, required, error
 }
 
 // ─── Página principal ─────────────────────────────────────────────────────────
-function NewRequestPage() {
+function NewSpecialRequestPage() {
     const {
         epps,
         warehouses,
@@ -219,9 +217,8 @@ function NewRequestPage() {
         submitting,
         setSubmitError,
         submitRequest,
-    } = useNewRequest();
+    } = useNewSpecialRequest();
 
-    // Cargar catálogos una sola vez
     useEffect(() => {
         loadCatalogs();
     }, [loadCatalogs]);
@@ -242,12 +239,8 @@ function NewRequestPage() {
     }));
 
     const handleAddToCart = () => {
-        if (!selectedEppId) {
-            return;
-        }
-        if (!quantity || quantity < 1) {
-            return;
-        }
+        if (!selectedEppId) return;
+        if (!quantity || quantity < 1) return;
         addToCart();
     };
 
@@ -272,8 +265,8 @@ function NewRequestPage() {
 
                 {/* Encabezado */}
                 <div>
-                    <h1 className="text-xl font-semibold text-gray-900">Nueva Solicitud de EPP</h1>
-                    <p className="text-xs text-gray-400 mt-0.5">Completa el formulario para solicitar equipos de protección personal</p>
+                    <h1 className="text-xl font-semibold text-gray-900">Nueva Solicitud Especial de EPP</h1>
+                    <p className="text-xs text-gray-400 mt-0.5">Selecciona cualquier EPP disponible en el sistema</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -471,4 +464,4 @@ function NewRequestPage() {
     );
 }
 
-export default NewRequestPage;
+export default NewSpecialRequestPage;

@@ -4,7 +4,7 @@ const { Schema, Types } = mongoose;
 
 const eppItemSchema = new Schema(
     {
-        eppId:    { type: Types.ObjectId, ref: 'Epps', required: true },
+        epp:      { type: Types.ObjectId, ref: 'Epps', required: true },
         quantity: { type: Number, required: true, min: [1, 'La cantidad debe ser mayor a 0'] },
     },
     { _id: false }
@@ -63,6 +63,25 @@ const requestSchema = new Schema(
         },
         deliveryDate: {
             type: Date,
+        },
+        approver: {
+            type: Types.ObjectId,
+            ref: 'User',
+        },
+        approvalToken: {
+            type: String,
+        },
+        deliveryToken: {
+            type: String,
+        },
+        bosses: [
+            {
+                _id: { type: Types.ObjectId, ref: 'User' },
+            },
+        ],
+        special: {
+            type: Boolean,
+            default: false,
         },
     },
     { timestamps: true }

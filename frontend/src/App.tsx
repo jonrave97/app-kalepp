@@ -13,6 +13,8 @@ import WarehouseDetailPage from './pages/WarehouseDetailPage.tsx';
 import CategoriesPage from './pages/CategoriesPage.tsx';
 import EppsPage from './pages/EppsPage.tsx';
 import NewRequestPage from './pages/NewRequestPage.tsx';
+import MyRequestsPage from './pages/MyRequestsPage.tsx';
+import NewSpecialRequestPage from './pages/NewSpecialRequestPage.tsx';
 import { ProtectedRoute } from './guards/ProtectedRoute.tsx';
 import { PublicRoute } from './guards/PublicRoute.tsx';
 import { AdminRoute } from './guards/AdminRoute.tsx';
@@ -84,6 +86,14 @@ function App() {
             <Route
               path='/newrequest'
               element={<NewRequestPage />}
+            />
+            <Route
+              path='/requests/new-special'
+              element={<NewSpecialRequestPage />}
+            />
+            <Route
+              path='/my-requests'
+              element={<MyRequestsPage />}
             />
 
             {/*My Profile */}

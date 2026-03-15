@@ -105,7 +105,7 @@ export const createRequest = async (req, res) => {
             warehouse,
             reason,
             epps: epps.map(e => ({
-                eppId:    e.eppId,
+                epp:      e.eppId,
                 quantity: Number(e.quantity),
             })),
         });
@@ -127,16 +127,24 @@ export const createRequest = async (req, res) => {
     }
 };
 
-// GET /api/requests?warehouse=id&page=1&limit=10&search=texto
+// GET /api/requests?warehouse=id&employee=id&page=1&limit=10&search=texto
 export const getRequests = async (req, res) => {
     try {
-        const page      = Math.max(1, parseInt(req.query.page)  || 1);
-        const limit     = Math.max(1, parseInt(req.query.limit) || 10);
-        const search    = (req.query.search || '').trim();
+        const page        = Math.max(1, parseInt(req.query.page)  || 1);
+        const limit       = Math.max(1, parseInt(req.query.limit) || 10);
+        const search      = (req.query.search || '').trim();
         const warehouseId = req.query.warehouse;
+        const employeeId  = req.query.employee;
 
         const filter = {};
         if (warehouseId) filter.warehouse = warehouseId;
+        // When filtering by employee, allow only own requests (unless warehouse admin view)
+        if (employeeId) {
+            if (employeeId !== req.userId.toString()) {
+                return res.status(403).json({ message: 'No puedes ver solicitudes de otros usuarios' });
+            }
+            filter.employee = employeeId;
+        }
 
         if (search) {
             const matchedUsers = await User.find(
@@ -152,6 +160,8 @@ export const getRequests = async (req, res) => {
         const total    = await Request.countDocuments(filter);
         const requests = await Request.find(filter)
             .populate('employee', 'name')
+            .populate('approver', 'name')
+            .populate('epps.epp', 'name code')
             .sort({ date: -1 })
             .skip((page - 1) * limit)
             .limit(limit);

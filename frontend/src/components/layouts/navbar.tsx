@@ -10,19 +10,25 @@ function Navbar() {
 
     const [mobileOpen, setMobileOpen] = useState(false);
     const [adminOpen, setAdminOpen] = useState(false);
+    const [requestsOpen, setRequestsOpen] = useState(false);
     const adminRef = useRef<HTMLLIElement>(null);
+    const requestsRef = useRef<HTMLLIElement>(null);
 
     // Cerrar menú móvil al cambiar de ruta
     useEffect(() => {
         setMobileOpen(false);
         setAdminOpen(false);
+        setRequestsOpen(false);
     }, [location.pathname]);
 
-    // Cerrar dropdown admin al hacer click fuera
+    // Cerrar dropdowns al hacer click fuera
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (adminRef.current && !adminRef.current.contains(e.target as Node)) {
                 setAdminOpen(false);
+            }
+            if (requestsRef.current && !requestsRef.current.contains(e.target as Node)) {
+                setRequestsOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -129,10 +135,50 @@ function Navbar() {
                     </li>
                     )}
 
-                    <li>
-                        <Link to="/newrequest" className={navLinkClass('/newrequest')}>
+                    {/* Dropdown Solicitudes */}
+                    <li className="relative" ref={requestsRef}>
+                        <button
+                            onClick={() => setRequestsOpen(prev => !prev)}
+                            className={`flex items-center gap-1 py-2 px-3 text-white rounded transition-all
+                                        cursor-pointer hover:bg-white/10 hover:text-accent active:scale-95
+                                        ${location.pathname === '/newrequest' || location.pathname === '/my-requests' || location.pathname === '/requests/new-special' ? 'text-accent font-semibold' : ''}`}
+                        >
                             Solicitudes
-                        </Link>
+                            <ChevronDown
+                                className={`w-4 h-4 transition-transform duration-200 ${requestsOpen ? 'rotate-180' : ''}`}
+                            />
+                        </button>
+
+                        {requestsOpen && (
+                            <div className="absolute right-0 mt-2 w-48 bg-white border shadow-lg rounded-lg overflow-hidden z-50">
+                                <ul>
+                                    <li>
+                                        <Link
+                                            to="/newrequest"
+                                            className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                        >
+                                            Nueva solicitud
+                                        </Link>
+                                    </li>
+                                    <li>
+                                        <Link
+                                            to="/requests/new-special"
+                                            className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                        >
+                                            Solicitud especial
+                                        </Link>
+                                    </li>
+                                    <li>
+                                        <Link
+                                            to="/my-requests"
+                                            className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                        >
+                                            Mis solicitudes
+                                        </Link>
+                                    </li>
+                                </ul>
+                            </div>
+                        )}
                     </li>
 
                     <li>
@@ -227,10 +273,47 @@ function Navbar() {
                         </li>
                         )}
 
+                        {/* Accordion Solicitudes (móvil) */}
                         <li>
-                            <Link to="/requests" className={navLinkClass('/requests')}>
+                            <button
+                                onClick={() => setRequestsOpen(prev => !prev)}
+                                className={`w-full flex items-center justify-between py-2 px-3 text-white rounded
+                                            hover:bg-white/10 transition-all active:scale-95
+                                            ${location.pathname === '/newrequest' || location.pathname === '/my-requests' || location.pathname === '/requests/new-special' ? 'bg-white/10 font-semibold' : ''}`}
+                            >
                                 Solicitudes
-                            </Link>
+                                <ChevronDown
+                                    className={`w-4 h-4 transition-transform duration-200 ${requestsOpen ? 'rotate-180' : ''}`}
+                                />
+                            </button>
+                            {requestsOpen && (
+                                <ul className="ml-4 mt-1 border-l-2 border-white/20 pl-3 space-y-1">
+                                    <li>
+                                        <Link
+                                            to="/newrequest"
+                                            className="block py-2 px-2 text-white/80 text-sm rounded hover:text-white hover:bg-white/10 transition-colors"
+                                        >
+                                            Nueva solicitud
+                                        </Link>
+                                    </li>
+                                    <li>
+                                        <Link
+                                            to="/requests/new-special"
+                                            className="block py-2 px-2 text-white/80 text-sm rounded hover:text-white hover:bg-white/10 transition-colors"
+                                        >
+                                            Solicitud especial
+                                        </Link>
+                                    </li>
+                                    <li>
+                                        <Link
+                                            to="/my-requests"
+                                            className="block py-2 px-2 text-white/80 text-sm rounded hover:text-white hover:bg-white/10 transition-colors"
+                                        >
+                                            Mis solicitudes
+                                        </Link>
+                                    </li>
+                                </ul>
+                            )}
                         </li>
 
                         <li>
