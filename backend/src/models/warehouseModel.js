@@ -22,6 +22,8 @@ const warehouseSchema = new mongoose.Schema({
     timestamps: true,
 });
 
+warehouseSchema.index({ disabled: 1, name: 1 });
+
 const Warehouse = mongoose.model('Warehouse', warehouseSchema);
 
 export default Warehouse;

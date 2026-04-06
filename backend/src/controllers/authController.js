@@ -1,31 +1,41 @@
 import User from '../models/userModel.js';
-import Position from '../models/positionModel.js';
 import bcrypt from 'bcrypt';
 import { getUserbyEmailWithPassword } from '../services/userServices.js';
 import generateAuthToken from '../helpers/generateAuthToken.js';
 
 
 
+export const profileCache = new Map();
+const PROFILE_CACHE_TTL = 30_000; // 30 segundos
+
 export const getProfile = async (req, res) => {
 	try {
-		// Obtener el perfil del usuario autenticado usando req.userId
+		const cached = profileCache.get(req.userId);
+		if (cached && Date.now() - cached.ts < PROFILE_CACHE_TTL) {
+			res.set('Cache-Control', 'private, max-age=30');
+			return res.json(cached.data);
+		}
+
 		const user = await User.findById(req.userId)
 			.select('-password -token')
 			.populate('position', 'name')
-			.populate('bosses._id', 'name email');
+			.populate('bosses._id', 'name email')
+			.lean();
 
 		if (!user) {
 			return res.status(404).json({ message: 'Usuario no encontrado' });
 		}
-		
-		// Convertir a objeto plano y mapear position a string
-		const userObject = user.toObject();
-		const userResponse = {
-			...userObject,
-			position: userObject.position?.name || null
+
+		const payload = {
+			...user,
+			position: user.position?.name ?? null,
+			bosses: (user.bosses || []).map(b => ({ _id: b._id })),
 		};
-		
-		res.json(userResponse);
+
+		profileCache.set(req.userId, { data: payload, ts: Date.now() });
+
+		res.set('Cache-Control', 'private, max-age=30');
+		res.json(payload);
 	} catch (error) {
 		console.error('Error al obtener perfil:', error);
 		return res.status(500).json({ message: 'Error al obtener el perfil del usuario' });

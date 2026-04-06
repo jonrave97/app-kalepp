@@ -54,6 +54,19 @@ export const getAllUsersMin = async (req, res) => {
     }
 };
 
+// GET /api/users/admin/active — lista de todos los usuarios habilitados
+export const getActiveUsers = async (req, res) => {
+    try {
+        const users = await User.find({ disabled: { $ne: true } })
+            .select('_id name email')
+            .sort({ name: 1 });
+        res.json(users);
+    } catch (error) {
+        console.error('Error al obtener usuarios activos:', error);
+        res.status(500).json({ message: 'Error al obtener los usuarios' });
+    }
+};
+
 // POST /api/users/admin
 export const createUser = async (req, res) => {
     try {

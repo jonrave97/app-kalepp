@@ -41,7 +41,8 @@ export const getAllEpps = async (req, res) => {
     try {
         const epps = await Epp.find({ disabled: { $ne: true } })
             .select('_id code name')
-            .sort({ name: 1 });
+            .sort({ name: 1 })
+            .lean();
         res.json(epps);
     } catch (error) {
         console.error('Error al obtener todos los EPPs:', error);

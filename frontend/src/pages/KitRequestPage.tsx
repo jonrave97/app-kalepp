@@ -120,6 +120,7 @@ function ImageDropzone({ images, onAdd, onRemove, isCompressing }: {
 function KitRequestPage() {
     const {
         epps, kits, warehouses, loadingCatalogs, loadCatalogs,
+        users, loadingUsers, loadUsers, selectedEmployee, setSelectedEmployee,
         selectedEppId, setSelectedEppId,
         quantity, setQuantity,
         addToCart, applyKit,
@@ -132,11 +133,15 @@ function KitRequestPage() {
 
     const [selectedKitId, setSelectedKitId] = useState('');
 
-    useEffect(() => { loadCatalogs(); }, [loadCatalogs]);
+    useEffect(() => {
+        loadCatalogs();
+        loadUsers();
+    }, [loadCatalogs, loadUsers]);
 
     const kitOptions: SelectOption[]       = kits.map(k => ({ value: k._id, label: k.name }));
     const eppOptions: SelectOption[]       = epps.map(e => ({ value: e._id, label: e.name }));
     const warehouseOptions: SelectOption[] = warehouses.map(w => ({ value: w._id, label: w.name }));
+    const userOptions: SelectOption[]      = users.map(u => ({ value: u._id, label: u.name }));
 
     const handleKitSelect = (kitId: string) => {
         setSelectedKitId(kitId);
@@ -235,7 +240,7 @@ function KitRequestPage() {
                                                 <tr key={item.eppId} className="hover:bg-gray-50 transition-colors">
                                                     <td className="px-4 py-3">
                                                         <span className="font-medium text-gray-800">{item.eppName}</span>
-                                                        <span className="ml-2 text-xs text-gray-400 font-mono">{item.eppCode}</span>
+                                                        
                                                     </td>
                                                     <td className="px-4 py-3 text-center">
                                                         <input type="number" min={1} value={item.quantity}
@@ -284,6 +289,23 @@ function KitRequestPage() {
                             <div className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 text-gray-600 select-none">
                                 Kit Inicial Trabajador Nuevo
                             </div>
+                        </div>
+
+                        {/* Trabajador */}
+                        <div>
+                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">
+                                Trabajador <span className="text-red-500">*</span>
+                            </label>
+                            {loadingUsers ? (
+                                <div className="h-10 bg-gray-100 rounded-xl animate-pulse" />
+                            ) : (
+                                <SearchSelect
+                                    options={userOptions}
+                                    value={selectedEmployee}
+                                    onChange={setSelectedEmployee}
+                                    placeholder="Buscar trabajador..."
+                                />
+                            )}
                         </div>
                     </div>
 

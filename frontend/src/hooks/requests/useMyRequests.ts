@@ -3,7 +3,7 @@ import { useAuth } from '@/context/Authcontext';
 import * as requestServices from '@/services/requestServices';
 import type { AdminRequest } from '@/services/requestServices';
 
-export function useMyRequests() {
+export function useMyRequests(reason?: string) {
     const { auth } = useAuth();
     const [requests, setRequests]     = useState<AdminRequest[]>([]);
     const [total, setTotal]           = useState(0);
@@ -17,7 +17,7 @@ export function useMyRequests() {
         if (!auth?._id) return;
         try {
             setLoading(true);
-            const data = await requestServices.getMyRequests(auth._id, p, s);
+            const data = await requestServices.getMyRequests(auth._id, p, s, 10, reason);
             setRequests(data.requests);
             setTotal(data.total);
             setTotalPages(data.pages);
@@ -25,7 +25,7 @@ export function useMyRequests() {
         } finally {
             setLoading(false);
         }
-    }, [auth?._id]);
+    }, [auth?._id, reason]);
 
     const handleSearch = () => {
         setSearch(inputSearch);

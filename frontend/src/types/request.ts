@@ -30,4 +30,5 @@ export interface CreateRequestPayload {
     warehouse: string;
     reason: string;
     epps: RequestEppItem[];
+    employee?: string;
 }

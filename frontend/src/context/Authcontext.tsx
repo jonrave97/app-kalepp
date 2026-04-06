@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { User } from "@/types/user";
 import { createContext , useState, useEffect, useContext} from "react";
 import API from "@/services/api";
+import { cached, invalidate } from "@/services/cache";
 
 export interface AuthContextType {
   auth: User | null;
@@ -44,12 +45,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
             try {
                 // Solo hacemos la petición si esperamos tener una sesión
-                const response = await API.get('/users/profile');
-                setAuth(response.data);
+                // cache.ts evita round-trips a backend durante 5 min
+                const data = await cached('auth:profile', () =>
+                    API.get('/users/profile').then(r => r.data)
+                );
+                setAuth(data);
             } catch (error: any) {
-                // Si falla (401, token expiró), limpiar flag
+                // Si falla (401, token expiró), limpiar flag y caché
                 if (error.response?.status === 401) {
                     sessionStorage.removeItem('hasSession');
+                    invalidate('auth:profile');
                 }
                 // console.error('❌ Error al autenticar usuario:', error);
                 setAuth(null);
@@ -69,8 +74,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         } catch (error) {
             console.error('Error en logout:', error);
         } finally {
-            // Limpiar flag de sesión
+            // Limpiar flag de sesión e invalidar caché de perfil
             sessionStorage.removeItem('hasSession');
+            invalidate('auth:profile');
             setAuth(null);
         }
     };

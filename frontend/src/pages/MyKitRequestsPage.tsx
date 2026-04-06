@@ -2,7 +2,9 @@ import { useEffect } from 'react';
 import { useMyRequests } from '@/hooks/requests/useMyRequests';
 import { RequestList } from '@/components/requests/RequestList';
 
-function MyRequestsPage() {
+const KIT_REASON = 'Kit Inicial Trabajador Nuevo';
+
+function MyKitRequestsPage() {
     const {
         requests,
         total,
@@ -14,7 +16,7 @@ function MyRequestsPage() {
         fetchRequests,
         handleSearch,
         handlePageChange,
-    } = useMyRequests();
+    } = useMyRequests(KIT_REASON);
 
     useEffect(() => {
         fetchRequests(1, '');
@@ -22,7 +24,7 @@ function MyRequestsPage() {
 
     return (
         <RequestList
-            title="Mis Solicitudes"
+            title="Mis Solicitudes de Kit Inicial"
             requests={requests}
             loading={loading}
             total={total}
@@ -32,8 +34,10 @@ function MyRequestsPage() {
             onSearchChange={setInputSearch}
             onSearch={handleSearch}
             onPageChange={handlePageChange}
+            searchPlaceholder="Buscar por código…"
+            emptyMessage="No se encontraron solicitudes de kit inicial"
         />
     );
 }
 
-export default MyRequestsPage;
+export default MyKitRequestsPage;

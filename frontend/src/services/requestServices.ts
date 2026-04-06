@@ -44,9 +44,10 @@ export const getMyRequests = async (
     page = 1,
     search = '',
     limit = 10,
+    reason?: string,
 ): Promise<AdminRequestsResponse> => {
     const response = await API.get('/requests', {
-        params: { employee: employeeId, page, search, limit },
+        params: { employee: employeeId, page, search, limit, ...(reason ? { reason } : {}) },
     });
     return response.data;
 };
@@ -68,6 +69,7 @@ export const createRequest = async (
     form.append('warehouse', payload.warehouse);
     form.append('reason',    payload.reason);
     form.append('epps',      JSON.stringify(payload.epps));
+    if (payload.employee) form.append('employee', payload.employee);
     images.forEach((img, i) => form.append('images', img, `photo${i + 1}.jpg`));
 
     // Pass Content-Type: undefined so the browser sets the multipart boundary automatically
@@ -75,4 +77,16 @@ export const createRequest = async (
         headers: { 'Content-Type': undefined },
     });
     return response.data;
+};
+
+export const downloadRequestPdf = async (id: string, code: number): Promise<void> => {
+    const response = await API.get(`/requests/${id}/pdf`, { responseType: 'blob' });
+    const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `solicitud-${code}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
 };

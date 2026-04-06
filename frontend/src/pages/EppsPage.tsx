@@ -353,7 +353,7 @@ function EppsPage() {
                                 >
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
-                                            <span className="text-xs font-mono text-gray-400">{epp.code}</span>
+                                            {/* <span className="text-xs font-mono text-gray-400">{epp.code}</span> */}
                                             <span className={`text-sm font-medium ${epp.disabled ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
                                                 {epp.name}
                                             </span>

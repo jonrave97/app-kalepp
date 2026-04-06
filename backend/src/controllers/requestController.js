@@ -1,4 +1,5 @@
 import multer from 'multer';
+import PDFDocument from 'pdfkit';
 import Request from '../models/requestModel.js';
 import User from '../models/userModel.js';
 import Epp from '../models/eppModel.js';
@@ -102,10 +103,26 @@ export const createRequest = async (req, res) => {
             }
         }
 
-        const positionName = user.position?.name ?? '';
+        let employeeId   = req.userId;
+        let positionName = user.position?.name ?? '';
+
+        if (isHRKitRequest) {
+            if (!req.body.employee) {
+                return res.status(400).json({ message: 'Debe seleccionar un trabajador para Kit Inicial Trabajador Nuevo' });
+            }
+            const targetEmployee = await User.findById(req.body.employee).populate('position', 'name');
+            if (!targetEmployee) {
+                return res.status(404).json({ message: 'Trabajador seleccionado no encontrado' });
+            }
+            if (targetEmployee.disabled) {
+                return res.status(400).json({ message: 'El trabajador seleccionado está deshabilitado' });
+            }
+            employeeId   = targetEmployee._id;
+            positionName = targetEmployee.position?.name ?? '';
+        }
 
         const request = await Request.create({
-            employee:  req.userId,
+            employee:  employeeId,
             position:  positionName,
             warehouse,
             reason,
@@ -143,7 +160,7 @@ export const createRequest = async (req, res) => {
     }
 };
 
-// GET /api/requests?warehouse=id&employee=id&page=1&limit=10&search=texto
+// GET /api/requests?warehouse=id&employee=id&reason=text&page=1&limit=10&search=texto
 export const getRequests = async (req, res) => {
     try {
         const page        = Math.max(1, parseInt(req.query.page)  || 1);
@@ -151,9 +168,11 @@ export const getRequests = async (req, res) => {
         const search      = (req.query.search || '').trim();
         const warehouseId = req.query.warehouse;
         const employeeId  = req.query.employee;
+        const reason      = req.query.reason;
 
         const filter = {};
         if (warehouseId) filter.warehouse = warehouseId;
+        if (reason) filter.reason = reason;
         // When filtering by employee, allow only own requests (unless warehouse admin view)
         if (employeeId) {
             if (employeeId !== req.userId.toString()) {
@@ -211,6 +230,261 @@ export const deleteRequest = async (req, res) => {
     } catch (error) {
         console.error('Error al eliminar solicitud:', error);
         res.status(500).json({ message: 'Error al eliminar la solicitud' });
+    }
+};
+
+// GET /api/requests/:id/pdf
+export const getRequestPdf = async (req, res) => {
+    try {
+        const request = await Request.findById(req.params.id)
+            .populate('employee', 'name')
+            .populate('approver', 'name')
+            .populate('warehouse', 'name code')
+            .populate('epps.epp', 'name code');
+
+        if (!request) {
+            return res.status(404).json({ message: 'Solicitud no encontrada' });
+        }
+
+        // Only the owner can download
+        const employeeId = request.employee?._id ?? request.employee;
+        if (employeeId.toString() !== req.userId.toString()) {
+            return res.status(403).json({ message: 'No tienes permiso para descargar este documento' });
+        }
+
+        // Only delivered requests
+        if (request.status !== 'Entregada' && request.status !== 'Entregado') {
+            return res.status(400).json({ message: 'El documento solo está disponible para solicitudes entregadas' });
+        }
+
+        const employeeName = request.employee?.name ?? '—';
+        const approverName = request.approver?.name ?? '—';
+        const warehouseDoc = request.warehouse;
+        const warehouseName = warehouseDoc
+            ? `${warehouseDoc.code ?? ''} — ${warehouseDoc.name ?? ''}`
+            : '—';
+        const approveDate = request.approveDate
+            ? new Date(request.approveDate).toLocaleDateString('es-CL', { year: 'numeric', month: 'long', day: 'numeric' })
+            : '—';
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="solicitud-${request.code}.pdf"`);
+
+        const doc = new PDFDocument({ margin: 50, size: 'A4' });
+        doc.pipe(res);
+
+        const pageW    = doc.page.width;   // 595.28
+        const marginL  = 50;
+        const marginR  = 50;
+        const contentW = pageW - marginL - marginR;
+
+        // ── Paleta del sistema ────────────────────────────────────────────────
+        const CLR = {
+            primary:      '#1a3a5c',
+            primaryMid:   '#2563eb',
+            primaryLight: '#dce8f5',
+            white:        '#ffffff',
+            gray900:      '#111827',
+            gray600:      '#4b5563',
+            gray400:      '#9ca3af',
+            gray200:      '#e5e7eb',
+            gray50:       '#f9fafb',
+            legalAccent:  '#93c5fd',
+            declBg:       '#f0f5fa',
+        };
+
+        // ── Helpers ────────────────────────────────────────────────────────────
+        const drawRule = (color = CLR.gray200) => {
+            doc.fontSize(10);
+            doc.moveTo(marginL, doc.y)
+               .lineTo(pageW - marginR, doc.y)
+               .strokeColor(color).lineWidth(0.5).stroke();
+            doc.moveDown(0.7);
+        };
+
+        const drawSectionTitle = (title) => {
+            doc.fontSize(10);
+            doc.moveDown(0.4);
+            const y = doc.y;
+            doc.rect(marginL, y, 3, 13).fillColor(CLR.primary).fill();
+            doc.fontSize(10).fillColor(CLR.primary).font('Helvetica-Bold')
+               .text(title, marginL + 12, y, { width: contentW - 12 });
+            doc.moveDown(0.5);
+        };
+
+        const drawDataTable = (rows, startY, labelW) => {
+            const valColX  = marginL + labelW;
+            const valColW  = contentW - labelW;
+            const rowH     = 22;
+            for (let i = 0; i < rows.length; i++) {
+                const [label, value] = rows[i];
+                const rowY = startY + i * rowH;
+                // row background
+                doc.rect(marginL, rowY, contentW, rowH)
+                   .fillColor(i % 2 === 0 ? CLR.gray50 : CLR.white).fill();
+                // label cell background
+                doc.rect(marginL, rowY, labelW, rowH)
+                   .fillColor(CLR.primaryLight).fill();
+                // internal divider between rows (skip first)
+                if (i > 0) {
+                    doc.moveTo(marginL, rowY).lineTo(marginL + contentW, rowY)
+                       .strokeColor(CLR.gray200).lineWidth(0.3).stroke();
+                }
+                doc.fontSize(8.5).fillColor(CLR.primary).font('Helvetica-Bold')
+                   .text(label, marginL + 8, rowY + 7, { width: labelW - 14 });
+                doc.fillColor(CLR.gray900).font('Helvetica')
+                   .text(value, valColX + 8, rowY + 7, { width: valColW - 12 });
+            }
+            const tableH = rows.length * rowH;
+            doc.y = startY + tableH;
+            // outer border
+            doc.rect(marginL, startY, contentW, tableH)
+               .strokeColor(CLR.gray200).lineWidth(0.5).stroke();
+            // vertical column divider
+            doc.moveTo(valColX, startY).lineTo(valColX, doc.y)
+               .strokeColor(CLR.gray200).lineWidth(0.3).stroke();
+        };
+
+        // ── Encabezado (banner completo) ──────────────────────────────────────
+        doc.rect(0, 0, pageW, 82).fillColor(CLR.primary).fill();
+        doc.rect(0, 82, pageW, 4).fillColor(CLR.primaryMid).fill();
+
+        doc.fontSize(8).fillColor('#7fb3d3').font('Helvetica')
+           .text('DOCUMENTO DE APROBACIÓN DE SOLICITUD', marginL, 18,
+                 { width: contentW, align: 'center' });
+
+        doc.fontSize(22).fillColor(CLR.white).font('Helvetica-Bold')
+           .text(`Solicitud Nº ${request.code}`, marginL, 38,
+                 { width: contentW, align: 'center' });
+
+        doc.y = 108;
+
+        // ── Marco Legal ───────────────────────────────────────────────────────
+        drawSectionTitle('Marco Legal');
+
+        const legalStartY = doc.y;
+
+        doc.fontSize(8.5).fillColor(CLR.gray600).font('Helvetica-Bold')
+           .text('Ley 16.744 Art. 68 inciso tercero', marginL + 12, doc.y);
+        doc.font('Helvetica-Oblique').fillColor(CLR.gray900)
+           .text('"Las empresas deberán proporcionar a sus trabajadores los equipos e implementos de protección necesarios, no pudiendo en caso alguno cobrarles su valor."',
+                marginL + 12, doc.y, { width: contentW - 24 });
+
+        doc.moveDown(0.5);
+
+        doc.fontSize(8.5).fillColor(CLR.gray600).font('Helvetica-Bold')
+           .text('DS 594 Artículo 53', marginL + 12, doc.y);
+        doc.font('Helvetica-Oblique').fillColor(CLR.gray900)
+           .text('"El empleador deberá proporcionar a sus trabajadores, libres de costo, los elementos de protección personal adecuados al riesgo."',
+                marginL + 12, doc.y, { width: contentW - 24 });
+
+        // accent bar alongside legal block (drawn after text since it doesn't overlap)
+        const legalBlockH = doc.y - legalStartY + 8;
+        doc.rect(marginL, legalStartY - 2, 3, legalBlockH).fillColor(CLR.legalAccent).fill();
+
+        doc.moveDown(0.8);
+        drawRule();
+
+        // ── Datos del Trabajador ──────────────────────────────────────────────
+        drawSectionTitle('Datos del Trabajador');
+
+        const workerRows = [
+            ['Nombre Trabajador', employeeName],
+            ['Cargo',             request.position || '—'],
+            ['Motivo Solicitud',  request.reason],
+            ['Bodega',            warehouseName],
+        ];
+
+        drawDataTable(workerRows, doc.y, 155);
+        doc.moveDown(0.8);
+        drawRule();
+
+        // ── Elementos de Protección Personal ─────────────────────────────────
+        drawSectionTitle('Elementos de Protección Personal (EPP)');
+
+        const qtyColW    = 80;
+        const eppNameW   = contentW - qtyColW;
+        const qtyColX    = marginL + eppNameW;
+        const eppHdrH    = 24;
+        const eppRowH    = 22;
+        const eppStartY  = doc.y;
+
+        // header row
+        doc.rect(marginL, eppStartY, contentW, eppHdrH).fillColor(CLR.primary).fill();
+        doc.fontSize(8.5).fillColor(CLR.white).font('Helvetica-Bold')
+           .text('Elemento de Protección Personal', marginL + 8, eppStartY + 8,
+                 { width: eppNameW - 14 })
+           .text('Cantidad', qtyColX, eppStartY + 8,
+                 { width: qtyColW - 8, align: 'center' });
+
+        let eppCurY = eppStartY + eppHdrH;
+        for (let i = 0; i < request.epps.length; i++) {
+            const item    = request.epps[i];
+            const eppName = item.epp?.name ?? item.epp?.toString() ?? '—';
+            doc.rect(marginL, eppCurY, contentW, eppRowH)
+               .fillColor(i % 2 === 0 ? CLR.gray50 : CLR.white).fill();
+            doc.moveTo(marginL, eppCurY).lineTo(marginL + contentW, eppCurY)
+               .strokeColor(CLR.gray200).lineWidth(0.3).stroke();
+            doc.fontSize(8.5).fillColor(CLR.gray900).font('Helvetica')
+               .text(eppName, marginL + 8, eppCurY + 7, { width: eppNameW - 14 })
+               .text(String(item.quantity), qtyColX, eppCurY + 7,
+                     { width: qtyColW - 8, align: 'center' });
+            eppCurY += eppRowH;
+        }
+        doc.y = eppCurY;
+        // outer border
+        doc.rect(marginL, eppStartY, contentW, eppHdrH + request.epps.length * eppRowH)
+           .strokeColor(CLR.gray200).lineWidth(0.5).stroke();
+        // vertical column divider
+        doc.moveTo(qtyColX, eppStartY).lineTo(qtyColX, eppCurY)
+           .strokeColor(CLR.gray200).lineWidth(0.3).stroke();
+
+        doc.moveDown(0.8);
+        drawRule();
+
+        // ── Aprobación ────────────────────────────────────────────────────────
+        drawSectionTitle('Aprobación');
+
+        const approvalRows = [
+            ['Aprobada Por',        approverName],
+            ['Fecha de Aprobación', approveDate],
+        ];
+
+        drawDataTable(approvalRows, doc.y, 155);
+        doc.moveDown(0.8);
+        drawRule();
+
+        // ── Declaración final ─────────────────────────────────────────────────
+        const declText = '"El trabajador se compromete a mantener los elementos de protección personal en buen estado y declara haberlos recibido en forma gratuita."';
+        doc.fontSize(8.5).font('Helvetica-Oblique');
+        const declTextH = doc.heightOfString(declText, { width: contentW - 24 });
+        const declBoxH  = declTextH + 24;
+        const declBoxY  = doc.y;
+
+        doc.rect(marginL, declBoxY, contentW, declBoxH).fillColor(CLR.declBg).fill();
+        doc.rect(marginL, declBoxY, 4, declBoxH).fillColor(CLR.primary).fill();
+        doc.fillColor(CLR.gray900)
+           .text(declText, marginL + 14, declBoxY + 12,
+                 { width: contentW - 22, align: 'justify' });
+        doc.y = declBoxY + declBoxH;
+
+        doc.moveDown(2.5);
+
+        // ── Firma ─────────────────────────────────────────────────────────────
+        const sigX = marginL;
+        const sigW = 185;
+        doc.moveTo(sigX, doc.y).lineTo(sigX + sigW, doc.y)
+           .strokeColor(CLR.gray600).lineWidth(0.8).stroke();
+        doc.moveDown(0.4);
+        doc.fontSize(8).fillColor(CLR.gray400).font('Helvetica')
+           .text('Firma del trabajador', sigX, doc.y, { width: sigW, align: 'center' });
+
+        doc.end();
+    } catch (error) {
+        console.error('Error al generar PDF:', error);
+        if (!res.headersSent) {
+            res.status(500).json({ message: 'Error al generar el documento PDF' });
+        }
     }
 };
 

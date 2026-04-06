@@ -14,6 +14,7 @@ import CategoriesPage from './pages/CategoriesPage.tsx';
 import EppsPage from './pages/EppsPage.tsx';
 import NewRequestPage from './pages/NewRequestPage.tsx';
 import MyRequestsPage from './pages/MyRequestsPage.tsx';
+import MyKitRequestsPage from './pages/MyKitRequestsPage.tsx';
 import NewSpecialRequestPage from './pages/NewSpecialRequestPage.tsx';
 import KitsPage from './pages/KitsPage.tsx';
 import KitRequestPage from './pages/KitRequestPage.tsx';
@@ -101,6 +102,10 @@ function App() {
             <Route
               path='/my-requests'
               element={<MyRequestsPage />}
+            />
+            <Route
+              path='/my-kit-requests'
+              element={<MyKitRequestsPage />}
             />
             <Route
               path='/requests/kit-request'

@@ -40,7 +40,8 @@ export const getAllWarehouses = async (req, res) => {
     try {
         const warehouses = await Warehouse.find({ disabled: { $ne: true } })
             .select('_id code name')
-            .sort({ name: 1 });
+            .sort({ name: 1 })
+            .lean();
         res.json(warehouses);
     } catch (error) {
         console.error('Error al obtener todas las bodegas:', error);

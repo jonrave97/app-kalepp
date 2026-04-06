@@ -31,6 +31,8 @@ const kitSchema = new Schema(
     { timestamps: true }
 );
 
+kitSchema.index({ active: 1, name: 1 });
+
 const Kit = mongoose.model('Kit', kitSchema);
 
 export default Kit;

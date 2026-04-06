@@ -27,9 +27,10 @@ export const getKits = async (req, res) => {
 export const getAllKits = async (req, res) => {
     try {
         const kits = await Kit.find({ active: true })
-            .populate('epps.epp', '_id name code')
+            .populate({ path: 'epps.epp', select: '_id name code' })
             .select('name description epps')
-            .sort({ name: 1 });
+            .sort({ name: 1 })
+            .lean();
         res.json(kits);
     } catch (error) {
         console.error('Error al obtener todos los kits:', error);

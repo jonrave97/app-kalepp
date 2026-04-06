@@ -8,6 +8,7 @@ import { getAllWarehouses } from '@/services/warehouseServices';
 import { createRequest } from '@/services/requestServices';
 import { getAllEpps } from '@/services/eppServices';
 import { getAllKits } from '@/services/kitServices';
+import { getAllActiveUsers } from '@/services/userAdminServices';
 
 const MAX_IMAGES     = 5;
 const MAX_SIZE_BYTES = 10 * 1024 * 1024;
@@ -26,6 +27,10 @@ export function useKitRequest() {
     const [kits,       setKits]       = useState<Kit[]>([]);
     const [warehouses, setWarehouses] = useState<{ _id: string; code: string; name: string }[]>([]);
     const [loadingCatalogs, setLoadingCatalogs] = useState(false);
+
+    const [users,           setUsers]           = useState<{ _id: string; name: string; email: string }[]>([]);
+    const [loadingUsers,    setLoadingUsers]    = useState(false);
+    const [selectedEmployee, setSelectedEmployee] = useState('');
 
     const [selectedEppId,     setSelectedEppId]     = useState('');
     const [quantity,          setQuantity]          = useState<number>(1);
@@ -50,6 +55,16 @@ export function useKitRequest() {
             setKits(kitData);
         } finally {
             setLoadingCatalogs(false);
+        }
+    }, []);
+
+    const loadUsers = useCallback(async () => {
+        try {
+            setLoadingUsers(true);
+            const data = await getAllActiveUsers();
+            setUsers(data);
+        } finally {
+            setLoadingUsers(false);
         }
     }, []);
 
@@ -156,10 +171,15 @@ export function useKitRequest() {
             await Swal.fire({ icon: 'warning', title: 'Bodega requerida', text: 'Debe seleccionar una bodega.' });
             return false;
         }
+        if (!selectedEmployee) {
+            await Swal.fire({ icon: 'warning', title: 'Trabajador requerido', text: 'Debe seleccionar un trabajador.' });
+            return false;
+        }
         const payload: CreateRequestPayload = {
             warehouse: selectedWarehouse,
             reason:    KIT_REASON,
             epps:      cart.map(item => ({ eppId: item.eppId, quantity: item.quantity })),
+            employee:  selectedEmployee,
         };
         try {
             setSubmitting(true);
@@ -167,6 +187,7 @@ export function useKitRequest() {
             setCart([]);
             setSelectedWarehouse('');
             setImages([]);
+            setSelectedEmployee('');
             return true;
         } catch (err: unknown) {
             const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -175,10 +196,11 @@ export function useKitRequest() {
         } finally {
             setSubmitting(false);
         }
-    }, [cart, selectedWarehouse, images]);
+    }, [cart, selectedWarehouse, selectedEmployee, images]);
 
     return {
         epps, kits, warehouses, loadingCatalogs, loadCatalogs,
+        users, loadingUsers, loadUsers, selectedEmployee, setSelectedEmployee,
         selectedEppId, setSelectedEppId,
         quantity, setQuantity,
         addToCart, applyKit,

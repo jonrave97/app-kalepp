@@ -33,6 +33,8 @@ const eppSchema = new mongoose.Schema({
     timestamps: true,
 });
 
+eppSchema.index({ disabled: 1, name: 1 });
+
 const Epp = mongoose.model('Epps', eppSchema);
 
 export default Epp;

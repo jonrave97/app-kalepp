@@ -23,6 +23,11 @@ export const getAllUsersMin = async (): Promise<Pick<User, '_id' | 'name' | 'ema
     return response.data;
 };
 
+export const getAllActiveUsers = async (): Promise<Pick<User, '_id' | 'name' | 'email'>[]> => {
+    const response = await API.get('/users/admin/active');
+    return response.data;
+};
+
 export const createUser = async (data: UserFormData): Promise<User> => {
     const response = await API.post('/users/admin', data);
     return response.data;
