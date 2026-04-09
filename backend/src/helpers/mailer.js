@@ -227,3 +227,64 @@ export const sendRequestEmail = async ({
 
     console.log(`[mailer] Correo enviado a: ${to}`);
 };
+
+// ─── Password reset email ─────────────────────────────────────────────────────
+export const sendPasswordResetEmail = async ({ to, userName, resetUrl }) => {
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr>
+    <td align="center" style="padding:40px 16px;">
+      <table width="500" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;max-width:500px;">
+        <tr>
+          <td style="background:rgb(255,105,0);padding:28px 32px;">
+            <p style="margin:0;color:#ffe0cc;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;">Sistema Kalepp</p>
+            <h1 style="margin:6px 0 0;color:#ffffff;font-size:22px;font-weight:700;">Restablecer contraseña</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;">
+            <p style="margin:0 0 16px;font-size:14px;color:#374151;">Hola <strong>${userName}</strong>,</p>
+            <p style="margin:0 0 24px;font-size:14px;color:#374151;">
+              Recibimos una solicitud para restablecer tu contraseña. El enlace es válido por <strong>30 minutos</strong>.
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td align="center" style="padding-bottom:24px;">
+                  <a href="${resetUrl}"
+                     style="display:inline-block;background:rgb(255,105,0);color:#ffffff;padding:13px 28px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:14px;">
+                    Restablecer contraseña
+                  </a>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:0;font-size:12px;color:#9ca3af;">
+              Si no solicitaste este cambio, puedes ignorar este correo. Tu contraseña no será modificada.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;">
+            <p style="margin:0;font-size:11px;color:#9ca3af;text-align:center;">
+              Este correo fue generado automáticamente. Por favor no respondas a este mensaje.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+    await transporter.sendMail({
+        from:    `"Sistema Kalepp" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+        to,
+        subject: 'Restablecer contraseña — Kalepp',
+        html,
+    });
+
+    console.log(`[mailer] Correo de reset enviado a: ${to}`);
+};

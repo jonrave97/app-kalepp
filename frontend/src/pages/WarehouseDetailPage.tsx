@@ -263,7 +263,7 @@ function WarehouseDetailPage() {
                 <div>
                     <button
                         onClick={() => navigate('/admin/warehouses')}
-                        className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors mb-3"
+                        className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors mb-3 cursor-pointer"
                     >
                         <ArrowLeft className="w-4 h-4" />
                         Volver a Bodegas

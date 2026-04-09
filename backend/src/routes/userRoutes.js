@@ -1,5 +1,5 @@
 import {Router} from 'express';
-import {loginUser, getProfile, logoutUser, profileCache}  from '../controllers/authController.js';
+import {loginUser, getProfile, logoutUser, profileCache, forgotPassword, resetPassword}  from '../controllers/authController.js';
 import authMiddleware from '../middlewares/authMiddleware.js';
 import {
     getUsers,
@@ -14,6 +14,8 @@ import User from '../models/userModel.js';
 const router = Router();
 
 router.post('/login', loginUser);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password/:token', resetPassword);
 
 router.use(authMiddleware); // Proteger las rutas siguientes
 

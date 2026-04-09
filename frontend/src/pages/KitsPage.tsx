@@ -34,7 +34,7 @@ function SearchSelect({ options, value, onChange, placeholder = 'Seleccionar...'
                 onClick={() => { setOpen(p => !p); setQuery(''); }}
                 className="w-full flex items-center justify-between px-3 py-2.5 border border-gray-200
                            rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40
-                           disabled:opacity-40 disabled:cursor-not-allowed"
+                           disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer hover:bg-gray-50 transition-colors"
             >
                 <span className={selectedLabel ? 'text-gray-800' : 'text-gray-400'}>{selectedLabel || placeholder}</span>
                 <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -272,14 +272,14 @@ function KitModal({ kit, onClose, onSaved }: KitModalProps) {
 function KitsPage() {
     const {
         kits, total, totalPages, page,
-        inputSearch, setInputSearch, loading,
+        inputSearch, setInputSearch, loading, error,
         fetchKits, handleSearch, handlePageChange,
     } = useKits();
 
     const [modalOpen,  setModalOpen]  = useState(false);
     const [editTarget, setEditTarget] = useState<Kit | null>(null);
 
-    useEffect(() => { fetchKits(1, ''); }, [fetchKits]);
+    useEffect(() => { fetchKits(1, '').catch(console.error); }, [fetchKits]);
 
     const openCreate = () => { setEditTarget(null); setModalOpen(true); };
     const openEdit   = (k: Kit) => { setEditTarget(k); setModalOpen(true); };
@@ -321,14 +321,14 @@ function KitsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 py-12 px-4">
+        <div className="min-h-screen bg-gray-50 py-12 px-4" translate="no">
             <div className="max-w-3xl mx-auto space-y-4">
 
                 {/* Encabezado */}
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-xl font-semibold text-gray-900">Kits de EPP</h1>
-                        <p className="text-xs text-gray-400 mt-0.5">{total} registro{total !== 1 ? 's' : ''}</p>
+                        <p className="text-xs text-gray-400 mt-0.5"><span>{total}</span> registro{total !== 1 ? 's' : ''}</p>
                     </div>
                     <button onClick={openCreate}
                         className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium
@@ -365,6 +365,17 @@ function KitsPage() {
                                 </div>
                             ))}
                         </div>
+                    ) : error ? (
+                        <div className="py-16 text-center px-6">
+                            <p className="text-red-500 text-sm font-medium">Error al cargar los kits</p>
+                            <p className="text-gray-400 text-xs mt-1">{error}</p>
+                            <button
+                                onClick={() => fetchKits(1, '').catch(console.error)}
+                                className="mt-4 px-4 py-2 text-sm font-medium text-white bg-primary rounded-xl hover:opacity-85 transition-opacity"
+                            >
+                                Reintentar
+                            </button>
+                        </div>
                     ) : kits.length === 0 ? (
                         <div className="py-16 text-center">
                             <p className="text-gray-400 text-sm">No se encontraron kits</p>
@@ -391,7 +402,7 @@ function KitsPage() {
                                         <td className="px-6 py-4 text-gray-500 hidden sm:table-cell text-xs max-w-xs truncate">
                                             {kit.description || '—'}
                                         </td>
-                                        <td className="px-6 py-4 text-center text-gray-600">{kit.epps.length}</td>
+                                        <td className="px-6 py-4 text-center text-gray-600"><span>{kit.epps.length}</span></td>
                                         <td className="px-6 py-4 text-center">
                                             {kit.active ? (
                                                 <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">Activo</span>
@@ -430,7 +441,7 @@ function KitsPage() {
                                        hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                             Anterior
                         </button>
-                        <span className="text-xs text-gray-400">Página {page} de {totalPages}</span>
+                        <span className="text-xs text-gray-400">Página <span>{page}</span> de <span>{totalPages}</span></span>
                         <button onClick={() => handlePageChange(page + 1)} disabled={page >= totalPages}
                             className="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-xl
                                        hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">

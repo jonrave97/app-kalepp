@@ -1,7 +1,10 @@
 import User from '../models/userModel.js';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import { getUserbyEmailWithPassword } from '../services/userServices.js';
 import generateAuthToken from '../helpers/generateAuthToken.js';
+import generateResetToken from '../helpers/generateResetToken.js';
+import { sendPasswordResetEmail } from '../helpers/mailer.js';
 
 
 
@@ -103,7 +106,60 @@ export const loginUser = async (req, res) => {
 export const logoutUser = (req, res) => {
 	res.cookie('token', '', {
 		httpOnly: true,
-		expires: new Date(0) // Establecer la cookie para que expire inmediatamente
+		expires: new Date(0)
 	});
 	res.json({ message: "Logout exitoso" });
 }
+
+export const forgotPassword = async (req, res) => {
+	const { email } = req.body;
+	if (!email) return res.status(400).json({ message: 'El email es obligatorio' });
+
+	try {
+		const user = await User.findOne({ email: email.trim().toLowerCase() }).select('_id name email disabled');
+
+		// Respuesta genérica para no revelar si el email existe
+		if (!user || user.disabled) {
+			return res.json({ message: 'Si el email existe, recibirás un enlace en breve' });
+		}
+
+		const resetToken = generateResetToken(user._id.toString());
+		const resetUrl   = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+
+		await sendPasswordResetEmail({ to: user.email, userName: user.name, resetUrl });
+
+		return res.json({ message: 'Si el email existe, recibirás un enlace en breve' });
+	} catch (error) {
+		console.error('Error en forgotPassword:', error);
+		return res.status(500).json({ message: 'Error al procesar la solicitud' });
+	}
+};
+
+export const resetPassword = async (req, res) => {
+	const { token }       = req.params;
+	const { password }    = req.body;
+
+	if (!password || password.length < 8) {
+		return res.status(400).json({ message: 'La contraseña debe tener al menos 8 caracteres' });
+	}
+
+	try {
+		const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+		if (decoded.purpose !== 'password-reset') {
+			return res.status(400).json({ message: 'Token inválido' });
+		}
+
+		const hashedPassword = await bcrypt.hash(password, 10);
+
+		const user = await User.findByIdAndUpdate(decoded.id, { password: hashedPassword });
+		if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+		return res.json({ message: 'Contraseña actualizada correctamente' });
+	} catch (error) {
+		if (error.name === 'TokenExpiredError') {
+			return res.status(400).json({ message: 'El enlace ha expirado. Solicita uno nuevo' });
+		}
+		return res.status(400).json({ message: 'Token inválido' });
+	}
+};

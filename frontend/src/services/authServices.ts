@@ -21,7 +21,15 @@ export const loginUser = async (email: string, password: string) => {
   }
 };
 
-// Función para actualizar las tallas del usuario
+export const forgotPassword = async (email: string) => {
+  const response = await API.post('/users/forgot-password', { email });
+  return response.data;
+};
+
+export const resetPassword = async (token: string, password: string) => {
+  const response = await API.post(`/users/reset-password/${token}`, { password });
+  return response.data;
+};
 export const updateUserSizes = async (sizes: UserSizes) => {
   try {
     const response = await API.patch('/users/profile/sizes', { sizes });

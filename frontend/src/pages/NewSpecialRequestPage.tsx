@@ -45,7 +45,7 @@ function SearchSelect({ options, value, onChange, placeholder = 'Seleccionar...'
                 onClick={() => { setOpen(prev => !prev); setQuery(''); }}
                 className="w-full flex items-center justify-between px-3 py-2.5 border border-gray-200
                            rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40
-                           disabled:opacity-40 disabled:cursor-not-allowed"
+                           disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer hover:bg-gray-50 transition-colors"
             >
                 <span className={selectedLabel ? 'text-gray-800' : 'text-gray-400'}>
                     {selectedLabel || placeholder}

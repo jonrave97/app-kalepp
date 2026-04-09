@@ -1,4 +1,5 @@
 import API from './api';
+import { cached, invalidateByPrefix } from './cache';
 import type { Request, CreateRequestPayload } from '@/types/request';
 import type { Epp } from '@/types/epp';
 
@@ -39,21 +40,24 @@ export const getAdminRequests = async (
     return response.data;
 };
 
-export const getMyRequests = async (
+export const getMyRequests = (
     employeeId: string,
     page = 1,
     search = '',
     limit = 10,
     reason?: string,
 ): Promise<AdminRequestsResponse> => {
-    const response = await API.get('/requests', {
-        params: { employee: employeeId, page, search, limit, ...(reason ? { reason } : {}) },
-    });
-    return response.data;
+    const key = `requests:employee:${employeeId}:p${page}:s${search}:l${limit}:r${reason ?? ''}`;
+    return cached(key, () =>
+        API.get('/requests', {
+            params: { employee: employeeId, page, search, limit, ...(reason ? { reason } : {}) },
+        }).then(r => r.data),
+    );
 };
 
-export const deleteRequest = async (id: string): Promise<void> => {
+export const deleteRequest = async (id: string, employeeId?: string): Promise<void> => {
     await API.delete(`/requests/${id}`);
+    if (employeeId) invalidateByPrefix(`requests:employee:${employeeId}:`);
 };
 
 export const getMyEpps = async (): Promise<Pick<Epp, '_id' | 'code' | 'name'>[]> => {
@@ -76,15 +80,16 @@ export const createRequest = async (
     const response = await API.post('/requests', form, {
         headers: { 'Content-Type': undefined },
     });
+    if (payload.employee) invalidateByPrefix(`requests:employee:${payload.employee}:`);
     return response.data;
 };
 
-export const downloadRequestPdf = async (id: string, code: number): Promise<void> => {
+export const downloadRequestPdf = async (id: string, code: number, employeeName: string): Promise<void> => {
     const response = await API.get(`/requests/${id}/pdf`, { responseType: 'blob' });
     const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `solicitud-${code}.pdf`;
+    link.download = `Documento de Entrega N° ${code} de ${employeeName}.pdf`;
     document.body.appendChild(link);
     link.click();
     link.remove();

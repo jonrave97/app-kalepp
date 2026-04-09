@@ -142,7 +142,10 @@ export function RequestList({
                                                 </button>
                                                 {(req.status === 'Entregado' || req.status === 'Entregada') && (
                                                     <button
-                                                        onClick={() => downloadRequestPdf(req._id, req.code)}
+                                                        onClick={() => {
+                                                            const name = typeof req.employee === 'string' ? req.employee : req.employee.name;
+                                                            downloadRequestPdf(req._id, req.code, name);
+                                                        }}
                                                         title="Descargar aprobación PDF"
                                                         className="p-2 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors"
                                                     >

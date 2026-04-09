@@ -145,7 +145,7 @@ function ProfilePage() {
                         {!isEditing ? (
                             <button
                                 onClick={() => setIsEditing(true)}
-                                className="flex items-center gap-1.5 text-sm text-primary hover:opacity-75 transition-opacity"
+                                className="flex items-center gap-1.5 text-sm text-primary hover:opacity-75 transition-opacity cursor-pointer"
                             >
                                 <Pencil className="w-3.5 h-3.5" />
                                 Editar
@@ -155,7 +155,7 @@ function ProfilePage() {
                                 <button
                                     onClick={handleCancel}
                                     disabled={loading}
-                                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-40 transition-colors"
+                                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-40 transition-colors cursor-pointer"
                                 >
                                     <X className="w-3.5 h-3.5" />
                                     Cancelar
@@ -163,7 +163,7 @@ function ProfilePage() {
                                 <button
                                     onClick={handleSave}
                                     disabled={loading}
-                                    className="flex items-center gap-1 text-sm font-medium text-primary hover:opacity-75 disabled:opacity-40 transition-opacity"
+                                    className="flex items-center gap-1 text-sm font-medium text-primary hover:opacity-75 disabled:opacity-40 transition-opacity cursor-pointer"
                                 >
                                     <Check className="w-3.5 h-3.5" />
                                     {loading ? 'Guardando…' : 'Guardar'}

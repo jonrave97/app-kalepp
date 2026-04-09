@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/auth/LoginPage.tsx'; //Pagina del login
 import NotFoundPage from './common/NotFoundPage.tsx';
 import ForgotPassword from './pages/auth/ForgotPasswordPage.tsx';
+import ResetPasswordPage from './pages/auth/ResetPasswordPage.tsx';
 import AppLayout from './components/template/appLayout.tsx';
 import DashboardPage from './pages/DashboardPage.tsx';
 import ProfilePage from './pages/ProfilePage.tsx';
@@ -22,6 +23,7 @@ import { ProtectedRoute } from './guards/ProtectedRoute.tsx';
 import { PublicRoute } from './guards/PublicRoute.tsx';
 import { AdminRoute } from './guards/AdminRoute.tsx';
 import { HRRoute } from './guards/HRRoute.tsx';
+import { ErrorBoundary } from './common/ErrorBoundary.tsx';
 
 
 // import './App.css'
@@ -45,16 +47,16 @@ function App() {
             }
           />
           {/* Definimos ruta pública para recuperar contraseña */}
-          <Route
-            path='/forgot-password'
-            element={<ForgotPassword />}
-          />
+          <Route path='/forgot-password' element={<ForgotPassword />} />
+          <Route path='/reset-password/:token' element={<ResetPasswordPage />} />
 
           {/*Layout protegido - protege todas las rutas hijas */}
           <Route
             element={
               <ProtectedRoute>
-                <AppLayout />
+                <ErrorBoundary>
+                  <AppLayout />
+                </ErrorBoundary>
               </ProtectedRoute>
             }
           >

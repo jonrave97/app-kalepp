@@ -1,10 +1,16 @@
 import multer from 'multer';
 import PDFDocument from 'pdfkit';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import Request from '../models/requestModel.js';
 import User from '../models/userModel.js';
 import Epp from '../models/eppModel.js';
 import Warehouse from '../models/warehouseModel.js';
 import { sendRequestEmail } from '../helpers/mailer.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+const LOGO_PATH  = path.join(__dirname, '..', '..', '..', 'frontend', 'public', 'kaltire.png');
 
 const ALLOWED_MIME = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 const MAX_IMAGES   = 5;
@@ -201,6 +207,7 @@ export const getRequests = async (req, res) => {
             .skip((page - 1) * limit)
             .limit(limit);
 
+        res.set('Cache-Control', 'private, max-age=30');
         res.json({
             requests,
             total,
@@ -237,7 +244,7 @@ export const deleteRequest = async (req, res) => {
 export const getRequestPdf = async (req, res) => {
     try {
         const request = await Request.findById(req.params.id)
-            .populate('employee', 'name')
+            .populate({ path: 'employee', select: 'name position', populate: { path: 'position', select: 'name' } })
             .populate('approver', 'name')
             .populate('warehouse', 'name code')
             .populate('epps.epp', 'name code');
@@ -258,17 +265,21 @@ export const getRequestPdf = async (req, res) => {
         }
 
         const employeeName = request.employee?.name ?? '—';
+        const positionName = request.position || request.employee?.position?.name || '—';
         const approverName = request.approver?.name ?? '—';
         const warehouseDoc = request.warehouse;
         const warehouseName = warehouseDoc
             ? `${warehouseDoc.code ?? ''} — ${warehouseDoc.name ?? ''}`
             : '—';
         const approveDate = request.approveDate
-            ? new Date(request.approveDate).toLocaleDateString('es-CL', { year: 'numeric', month: 'long', day: 'numeric' })
+            ? new Date(request.approveDate).toLocaleString('es-CL', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+            : '—';
+        const deliveryDate = request.deliveryDate
+            ? new Date(request.deliveryDate).toLocaleString('es-CL', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
             : '—';
 
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="solicitud-${request.code}.pdf"`);
+        res.setHeader('Content-Disposition', `attachment; filename="Documento de Entrega N°-${request.code} de ${request.employee.name}.pdf"`);
 
         const doc = new PDFDocument({ margin: 50, size: 'A4' });
         doc.pipe(res);
@@ -280,17 +291,17 @@ export const getRequestPdf = async (req, res) => {
 
         // ── Paleta del sistema ────────────────────────────────────────────────
         const CLR = {
-            primary:      '#1a3a5c',
-            primaryMid:   '#2563eb',
-            primaryLight: '#dce8f5',
+            primary:      '#FF6900',
+            primaryMid:   '#E05A00',
+            primaryLight: '#FFF0E6',
             white:        '#ffffff',
             gray900:      '#111827',
             gray600:      '#4b5563',
             gray400:      '#9ca3af',
             gray200:      '#e5e7eb',
             gray50:       '#f9fafb',
-            legalAccent:  '#93c5fd',
-            declBg:       '#f0f5fa',
+            legalAccent:  '#FFB580',
+            declBg:       '#FFF7F2',
         };
 
         // ── Helpers ────────────────────────────────────────────────────────────
@@ -349,7 +360,11 @@ export const getRequestPdf = async (req, res) => {
         doc.rect(0, 0, pageW, 82).fillColor(CLR.primary).fill();
         doc.rect(0, 82, pageW, 4).fillColor(CLR.primaryMid).fill();
 
-        doc.fontSize(8).fillColor('#7fb3d3').font('Helvetica')
+        try {
+            doc.image(LOGO_PATH, marginL, 11, { fit: [100, 60] });
+        } catch (_) { /* logo no encontrado, se omite */ }
+
+        doc.fontSize(8).fillColor('#FFD0B0').font('Helvetica')
            .text('DOCUMENTO DE APROBACIÓN DE SOLICITUD', marginL, 18,
                  { width: contentW, align: 'center' });
 
@@ -390,7 +405,7 @@ export const getRequestPdf = async (req, res) => {
 
         const workerRows = [
             ['Nombre Trabajador', employeeName],
-            ['Cargo',             request.position || '—'],
+            ['Cargo',             positionName],
             ['Motivo Solicitud',  request.reason],
             ['Bodega',            warehouseName],
         ];
@@ -448,6 +463,7 @@ export const getRequestPdf = async (req, res) => {
         const approvalRows = [
             ['Aprobada Por',        approverName],
             ['Fecha de Aprobación', approveDate],
+            ['Fecha de Entrega',    deliveryDate],
         ];
 
         drawDataTable(approvalRows, doc.y, 155);

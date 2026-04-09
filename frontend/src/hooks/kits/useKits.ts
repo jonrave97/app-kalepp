@@ -9,16 +9,21 @@ export function useKits() {
     const [page, setPage]             = useState(1);
     const [search, setSearch]         = useState('');
     const [inputSearch, setInputSearch] = useState('');
-    const [loading, setLoading]       = useState(false);
+    const [loading, setLoading]       = useState(true);
+    const [error, setError]           = useState<string | null>(null);
 
     const fetchKits = useCallback(async (p: number, s: string) => {
         try {
             setLoading(true);
+            setError(null);
             const data = await kitServices.getKits(p, s);
             setKits(data.kits);
             setTotal(data.total);
             setTotalPages(data.totalPages);
             setPage(data.page);
+        } catch (err) {
+            console.error('Error al cargar kits:', err);
+            setError('No se pudieron cargar los kits. Verifica tu conexión e intenta de nuevo.');
         } finally {
             setLoading(false);
         }
@@ -42,6 +47,7 @@ export function useKits() {
         inputSearch,
         setInputSearch,
         loading,
+        error,
         fetchKits,
         handleSearch,
         handlePageChange,
