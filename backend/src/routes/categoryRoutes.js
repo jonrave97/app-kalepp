@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import authMiddleware from '../middlewares/authMiddleware.js';
+import requireRole from '../middlewares/roleMiddleware.js';
+import validateObjectId from '../middlewares/validateObjectId.js';
 import {
     getCategories,
     getAllCategories,
@@ -12,10 +14,10 @@ const router = Router();
 
 router.use(authMiddleware);
 
-router.get('/all',          getAllCategories);
-router.get('/',             getCategories);
-router.post('/',            createCategory);
-router.put('/:id',          updateCategory);
-router.patch('/:id/toggle', toggleCategory);
+router.get('/all',          getAllCategories);                                        // todos los autenticados
+router.get('/',             requireRole('Administrador'), getCategories);
+router.post('/',            requireRole('Administrador'), createCategory);
+router.put('/:id',          requireRole('Administrador'), validateObjectId, updateCategory);
+router.patch('/:id/toggle', requireRole('Administrador'), validateObjectId, toggleCategory);
 
 export default router;

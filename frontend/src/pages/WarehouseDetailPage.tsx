@@ -1,28 +1,39 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Search, Trash2, ArrowLeft, Eye, X } from 'lucide-react';
+import { Search, Trash2, ArrowLeft, Eye, X, PackageCheck, ChevronDown, PackageOpen, CheckCircle2, CalendarClock, Ban } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useAuth } from '@/context/Authcontext';
 import { useWarehouseRequests } from '@/hooks/requests/useWarehouseRequests';
+import type { RequestStatus } from '@/hooks/requests/useWarehouseRequests';
+import { usePendingDeliveryCount } from '@/hooks/requests/usePendingDeliveryCount';
 import * as warehouseServices from '@/services/warehouseServices';
 import * as requestServices from '@/services/requestServices';
 import type { Warehouse } from '@/types/warehouse';
 import type { AdminRequest } from '@/services/requestServices';
 
+// Normaliza valores legacy de la BD hacia el nombre de display actual
+function normalizeStatus(status: string): string {
+    const aliases: Record<string, string> = {
+        Anulada: 'Cambios solicitados',
+        Entregado: 'Entregada',
+    };
+    return aliases[status] ?? status;
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: string }) {
+    const normalized = normalizeStatus(status);
     const styles: Record<string, string> = {
-        Pendiente:            'bg-yellow-100 text-yellow-700',
-        Aprobada:             'bg-blue-100 text-blue-700',
+        Pendiente:             'bg-yellow-100 text-yellow-700',
+        Aprobada:              'bg-blue-100 text-blue-700',
+        Entregada:             'bg-green-100 text-green-700',
+        'Sin Stock':           'bg-orange-100 text-orange-700',
         'Cambios solicitados': 'bg-red-100 text-red-700',
-        Entregado:            'bg-green-100 text-green-700',
-        // backward-compat aliases
-        Rechazada:            'bg-red-100 text-red-700',
-        Entregada:            'bg-green-100 text-green-700',
+        Rechazada:             'bg-red-100 text-red-700',
     };
     return (
-        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${styles[status] ?? 'bg-gray-100 text-gray-600'}`}>
-            {status}
+        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${styles[normalized] ?? 'bg-gray-100 text-gray-600'}`}>
+            {normalized}
         </span>
     );
 }
@@ -160,6 +171,24 @@ export function RequestDetailModal({ req, onClose }: { req: AdminRequest; onClos
                         </table>
                     </div>
 
+                    {/* Motivo de cambios solicitados */}
+                    {(req.status === 'Cambios solicitados' || req.status === 'Anulada') && (
+                        <div>
+                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Motivo de cambios solicitados</p>
+                            <table className="w-full text-sm border border-orange-100 rounded-xl overflow-hidden border-collapse">
+                                <tbody>
+                                    <tr className="bg-orange-50">
+                                        <td className="px-4 py-2.5 text-orange-800">
+                                            {req.annulReason
+                                                ? req.annulReason
+                                                : <span className="text-gray-400">Sin motivo registrado</span>}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
                     {/* EPPs solicitados */}
                     <div>
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">EPPs solicitados</p>
@@ -200,15 +229,288 @@ export function RequestDetailModal({ req, onClose }: { req: AdminRequest; onClos
     );
 }
 
+// ─── Modal entrega ────────────────────────────────────────────────────────────
+interface DeliverModalProps {
+    req: AdminRequest;
+    onClose: () => void;
+    onSuccess: () => void;
+}
+
+function SizeRow({ label, value }: { label: string; value?: string }) {
+    if (!value) return null;
+    return (
+        <tr>
+            <td className="px-4 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wider w-2/5 bg-gray-50">{label}</td>
+            <td className="px-4 py-2.5 text-gray-800">{value}</td>
+        </tr>
+    );
+}
+
+export function DeliverModal({ req, onClose, onSuccess }: DeliverModalProps) {
+    const [annulReason,   setAnnulReason]   = useState('');
+    const [expectedDate,  setExpectedDate]  = useState('');
+    const [loadingAction, setLoadingAction] = useState<'deliver' | 'nostock' | 'annul' | null>(null);
+
+    const employee    = typeof req.employee === 'object' ? req.employee : null;
+    const approver    = typeof req.approver === 'object' ? req.approver : null;
+    const sizes       = employee?.sizes;
+    const pantSize    = [sizes?.pants?.letter, sizes?.pants?.number].filter(Boolean).join(' / ');
+    const hasSizes    = !!(sizes?.footwear || sizes?.gloves || pantSize || sizes?.shirtJacket);
+
+    const eppLabel = (epp: AdminRequest['epps'][number]['epp']): string =>
+        epp && typeof epp === 'object' && epp.name ? epp.name : '—';
+
+    // ── Acción: Confirmar entrega con stock ──────────────────────────────────
+    const handleDeliver = async () => {
+        const result = await Swal.fire({
+            icon:              'question',
+            title:             '¿Confirmas que hay stock?',
+            text:              `Se registrará la entrega de la solicitud #${req.code}.`,
+            showCancelButton:  true,
+            confirmButtonText: 'Sí, confirmar',
+            cancelButtonText:  'Cancelar',
+            confirmButtonColor: '#16a34a',
+        });
+        if (!result.isConfirmed) return;
+
+        setLoadingAction('deliver');
+        try {
+            await requestServices.deliverRequest(req._id);
+            onClose();
+            await Swal.fire({ icon: 'success', title: 'Entrega registrada', timer: 1400, showConfirmButton: false });
+            onSuccess();
+        } catch (err: unknown) {
+            const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            Swal.fire({ icon: 'error', title: 'Error', text: msg || 'No se pudo registrar la entrega' });
+        } finally {
+            setLoadingAction(null);
+        }
+    };
+
+    // ── Acción: Marcar sin stock ─────────────────────────────────────────────
+    const handleNoStock = async () => {
+        if (!expectedDate) {
+            Swal.fire({ icon: 'warning', title: 'Fecha requerida', text: 'Selecciona la fecha estimada de llegada del stock.' });
+            return;
+        }
+        setLoadingAction('nostock');
+        try {
+            await requestServices.reportNoStock(req._id, expectedDate);
+            onClose();
+            await Swal.fire({ icon: 'success', title: 'Notificación enviada', text: 'Se notificó al trabajador por correo.', timer: 1800, showConfirmButton: false });
+            onSuccess();
+        } catch (err: unknown) {
+            const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            Swal.fire({ icon: 'error', title: 'Error', text: msg || 'No se pudo notificar la falta de stock' });
+        } finally {
+            setLoadingAction(null);
+        }
+    };
+
+    // ── Acción: Anular solicitud ─────────────────────────────────────────────
+    const handleAnnul = async () => {
+        if (annulReason.trim().length < 5) {
+            Swal.fire({ icon: 'warning', title: 'Motivo requerido', text: 'Ingresa un motivo de anulación (mínimo 5 caracteres).' });
+            return;
+        }
+        setLoadingAction('annul');
+        try {
+            await requestServices.annulRequest(req._id, annulReason);
+            onClose();
+            await Swal.fire({ icon: 'success', title: 'Cambios solicitados', timer: 1400, showConfirmButton: false });
+            onSuccess();
+        } catch (err: unknown) {
+            const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            Swal.fire({ icon: 'error', title: 'Error', text: msg || 'No se pudo anular la solicitud' });
+        } finally {
+            setLoadingAction(null);
+        }
+    };
+
+    const isLoading = loadingAction !== null;
+
+    // Fecha mínima del date picker: mañana
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const minDate = tomorrow.toISOString().split('T')[0];
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl flex flex-col max-h-[92vh]">
+
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+                    <h2 className="text-base font-semibold text-gray-900">
+                        Registrar Entrega <span className="font-mono">#{req.code}</span>
+                    </h2>
+                    <button
+                        onClick={onClose}
+                        disabled={isLoading}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+
+                <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1">
+
+                    {/* Información de la solicitud */}
+                    <div>
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Información</p>
+                        <table className="w-full text-sm border border-gray-100 rounded-xl overflow-hidden border-collapse">
+                            <tbody className="divide-y divide-gray-100">
+                                <tr>
+                                    <td className="px-4 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wider w-2/5 bg-gray-50">Trabajador</td>
+                                    <td className="px-4 py-2.5 text-gray-800">{employee?.name ?? '—'}</td>
+                                </tr>
+                                <tr>
+                                    <td className="px-4 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wider bg-gray-50">Aprobado por</td>
+                                    <td className="px-4 py-2.5 text-gray-800">{approver?.name ?? '—'}</td>
+                                </tr>
+                                <tr>
+                                    <td className="px-4 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wider bg-gray-50">Fecha aprobación</td>
+                                    <td className="px-4 py-2.5 text-gray-800">
+                                        {req.approveDate ? formatDate(req.approveDate) : <span className="text-gray-400">—</span>}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Tallas */}
+                    {hasSizes && (
+                        <div>
+                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Tallas del trabajador</p>
+                            <table className="w-full text-sm border border-gray-100 rounded-xl overflow-hidden border-collapse">
+                                <tbody className="divide-y divide-gray-100">
+                                    <SizeRow label="Calzado"       value={sizes?.footwear} />
+                                    <SizeRow label="Guantes"       value={sizes?.gloves} />
+                                    <SizeRow label="Pantalón"      value={pantSize || undefined} />
+                                    <SizeRow label="Ropa superior" value={sizes?.shirtJacket} />
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {/* EPPs */}
+                    <div>
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">EPPs solicitados</p>
+                        <table className="w-full text-sm border border-gray-100 rounded-xl overflow-hidden border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50 border-b border-gray-100">
+                                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">EPP</th>
+                                    <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider w-20">Cant.</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {req.epps.map((e, i) => (
+                                    <tr key={i} className={i % 2 === 0 ? '' : 'bg-gray-50'}>
+                                        <td className="px-4 py-2.5 text-gray-800">{eppLabel(e.epp)}</td>
+                                        <td className="px-4 py-2.5 text-center text-gray-800">{e.quantity}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <hr className="border-gray-100" />
+
+                    {/* Acción 1: Stock disponible */}
+                    <div className="space-y-2">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                            Stock disponible
+                        </p>
+                        <button
+                            onClick={handleDeliver}
+                            disabled={isLoading}
+                            className="w-full py-2.5 text-sm font-medium text-white bg-primary rounded-xl hover:opacity-85 disabled:opacity-50 transition-opacity cursor-pointer"
+                        >
+                            {loadingAction === 'deliver' ? 'Registrando…' : 'Confirmar entrega con stock'}
+                        </button>
+                    </div>
+
+                    {/* Acción 2: Falta stock */}
+                    <div className="space-y-2">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                            <CalendarClock className="w-3.5 h-3.5 text-primary" />
+                            Falta Stock — Notificar al trabajador
+                        </p>
+                        <input
+                            type="date"
+                            min={minDate}
+                            value={expectedDate}
+                            onChange={e => setExpectedDate(e.target.value)}
+                            disabled={isLoading}
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm
+                                       focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
+                        />
+                        <button
+                            onClick={handleNoStock}
+                            disabled={isLoading || !expectedDate}
+                            className="w-full py-2.5 text-sm font-medium text-white bg-primary rounded-xl hover:opacity-85 disabled:opacity-40 transition-opacity cursor-pointer"
+                        >
+                            {loadingAction === 'nostock' ? 'Enviando notificación…' : 'Notificar y marcar Sin Stock'}
+                        </button>
+                    </div>
+
+                    {/* Acción 3: Solicitar cambios */}
+                    <div className="space-y-2">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                            <Ban className="w-3.5 h-3.5 text-primary" />
+                            Solicitar cambios
+                        </p>
+                        <textarea
+                            value={annulReason}
+                            onChange={e => setAnnulReason(e.target.value)}
+                            disabled={isLoading}
+                            placeholder="Motivo de los cambios solicitados…"
+                            rows={2}
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm resize-none
+                                       focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
+                        />
+                        <button
+                            onClick={handleAnnul}
+                            disabled={isLoading || annulReason.trim().length < 5}
+                            className="w-full py-2.5 text-sm font-medium text-white bg-primary rounded-xl hover:opacity-85 disabled:opacity-40 transition-opacity cursor-pointer"
+                        >
+                            {loadingAction === 'annul' ? 'Procesando…' : 'Solicitar cambios'}
+                        </button>
+                    </div>
+
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 border-t border-gray-100 flex justify-end flex-shrink-0">
+                    <button
+                        onClick={onClose}
+                        disabled={isLoading}
+                        className="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                        Cancelar
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    );
+}
+
 // ─── Página ───────────────────────────────────────────────────────────────────
-function WarehouseDetailPage() {
-    const { id } = useParams<{ id: string }>();
+function WarehouseDetailPage({ warehouseId }: { warehouseId?: string } = {}) {
+    const { id: paramId } = useParams<{ id: string }>();
+    const id = warehouseId ?? paramId;
     const navigate = useNavigate();
     const { auth } = useAuth();
 
-    const [warehouse, setWarehouse]             = useState<Warehouse | null>(null);
-    const [warehouseLoading, setWarehouseLoading] = useState(true);    const [selectedRequest, setSelectedRequest] = useState<AdminRequest | null>(null);
-    const isAdmin = auth?.rol === 'Administrador' || auth?.role === 'Administrador';
+    const [warehouse, setWarehouse]               = useState<Warehouse | null>(null);
+    const [warehouseLoading, setWarehouseLoading] = useState(true);
+    const [selectedRequest, setSelectedRequest]   = useState<AdminRequest | null>(null);
+    const [deliverTarget, setDeliverTarget]       = useState<AdminRequest | null>(null);
+    const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+    const statusDropdownRef = useRef<HTMLDivElement>(null);
+    const isAdmin     = auth?.rol === 'Administrador'       || auth?.role === 'Administrador';
+    const isEncargado = auth?.rol === 'Encargado de Bodega' || auth?.role === 'Encargado de Bodega';
 
     const {
         requests,
@@ -217,21 +519,47 @@ function WarehouseDetailPage() {
         page,
         inputSearch,
         setInputSearch,
+        statusFilter,
         loading,
         fetchRequests,
         handleSearch,
         handlePageChange,
+        handleStatusChange,
         handleClear,
     } = useWarehouseRequests(id!);
 
+    const { pendingCount, refresh: refreshPendingCount } = usePendingDeliveryCount(id!);
+
+    // Carga los datos de la bodega — solo cuando cambia el id
     useEffect(() => {
         if (!id) return;
         warehouseServices.getWarehouseById(id)
             .then(setWarehouse)
             .catch(() => setWarehouse(null))
             .finally(() => setWarehouseLoading(false));
+    }, [id]);
+
+    // Carga inicial de solicitudes — fetchRequests es estable (no cambia con statusFilter)
+    useEffect(() => {
+        if (!id) return;
         fetchRequests(1, '');
     }, [id, fetchRequests]);
+
+    // Cerrar dropdown de estado al hacer clic fuera
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node)) {
+                setStatusDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleDeliverSuccess = () => {
+        fetchRequests(page, inputSearch);
+        refreshPendingCount();
+    };
 
     const handleDelete = async (reqId: string) => {
         const result = await Swal.fire({
@@ -261,6 +589,7 @@ function WarehouseDetailPage() {
 
                 {/* Encabezado */}
                 <div>
+                    {isAdmin && (
                     <button
                         onClick={() => navigate('/admin/warehouses')}
                         className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors mb-3 cursor-pointer"
@@ -268,25 +597,46 @@ function WarehouseDetailPage() {
                         <ArrowLeft className="w-4 h-4" />
                         Volver a Bodegas
                     </button>
+                    )}
                     <h1 className="text-xl font-semibold text-gray-900">
                         {warehouseLoading ? '…' : warehouse ? `Bodega: ${warehouse.name}` : 'Bodega no encontrada'}
                     </h1>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                        {total} solicitud{total !== 1 ? 'es' : ''}
-                    </p>
+                    <div className="flex items-center gap-3 mt-0.5">
+                        <p className="text-xs text-gray-400">
+                            {total} solicitud{total !== 1 ? 'es' : ''}
+                        </p>
+                        {isEncargado && pendingCount !== null && pendingCount > 0 && (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-orange-50 text-primary border border-orange-200">
+                                <PackageOpen className="w-3.5 h-3.5" />
+                                {pendingCount} por entregar
+                            </span>
+                        )}
+                    </div>
                 </div>
 
-                {/* Buscador */}
+                {/* Buscador + Filtro de estado */}
                 <div className="flex gap-2">
-                    <input
-                        type="text"
-                        value={inputSearch}
-                        onChange={e => setInputSearch(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                        placeholder="Buscar por código o trabajador…"
-                        className="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl text-sm
-                                   focus:outline-none focus:ring-2 focus:ring-primary/40 bg-white"
-                    />
+                    <div className="relative flex-1">
+                        <input
+                            type="text"
+                            value={inputSearch}
+                            onChange={e => setInputSearch(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                            placeholder="Buscar por código o trabajador…"
+                            className="w-full px-3 py-2.5 pr-8 border border-gray-200 rounded-xl text-sm
+                                       focus:outline-none focus:ring-2 focus:ring-primary/40 bg-white"
+                        />
+                        {inputSearch && (
+                            <button
+                                onClick={handleClear}
+                                title="Limpiar búsqueda"
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400
+                                           hover:text-gray-600 transition-colors"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+                    </div>
                     <button
                         onClick={handleSearch}
                         className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium
@@ -295,13 +645,42 @@ function WarehouseDetailPage() {
                         <Search className="w-4 h-4" />
                         Buscar
                     </button>
-                    <button
-                        onClick={handleClear}
-                        className="px-4 py-2.5 text-sm text-gray-600 bg-white border border-gray-200 rounded-xl
-                                   hover:bg-gray-50 transition-colors"
-                    >
-                        Limpiar
-                    </button>
+
+                    {/* Dropdown filtro por estado */}
+                    <div className="relative" ref={statusDropdownRef}>
+                        <button
+                            onClick={() => setStatusDropdownOpen(prev => !prev)}
+                            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm rounded-xl border transition-colors
+                                ${statusFilter
+                                    ? 'border-primary bg-primary/10 text-primary font-medium'
+                                    : 'border-gray-200 text-gray-600 bg-white hover:bg-gray-50'
+                                }`}
+                        >
+                            {statusFilter || 'Estado'}
+                            <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+
+                        {statusDropdownOpen && (
+                            <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-100 rounded-xl shadow-lg z-10 overflow-hidden">
+                                {(['', 'Pendiente', 'Aprobada', 'Sin Stock', 'Entregada'] as RequestStatus[]).map(option => (
+                                    <button
+                                        key={option || 'todas'}
+                                        onClick={() => {
+                                            handleStatusChange(option);
+                                            setStatusDropdownOpen(false);
+                                        }}
+                                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors
+                                            ${statusFilter === option
+                                                ? 'bg-primary/10 text-primary font-medium'
+                                                : 'text-gray-700 hover:bg-gray-50'
+                                            }`}
+                                    >
+                                        {option || 'Todas'}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Tabla */}
@@ -328,12 +707,12 @@ function WarehouseDetailPage() {
                                     <tr className="bg-gray-50 border-b border-gray-100">
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Código</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Fecha</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Estado</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Trabajador</th>
+                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Estado</th>
                                         <th className="px-4 py-3 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">Stock</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Fecha de Entrega</th>
                                         <th className="px-4 py-3 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">Ver</th>
-                                        {isAdmin && (
+                                        {(isAdmin || isEncargado) && (
                                             <th className="px-4 py-3 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">Acción</th>
                                         )}
                                     </tr>
@@ -343,8 +722,8 @@ function WarehouseDetailPage() {
                                         <tr key={req._id} className="hover:bg-gray-50 transition-colors">
                                             <td className="px-4 py-3 font-mono text-gray-600">#{req.code}</td>
                                             <td className="px-4 py-3 text-gray-700">{formatDate(req.date)}</td>
-                                            <td className="px-4 py-3"><StatusBadge status={req.status} /></td>
                                             <td className="px-4 py-3 text-gray-700">{employeeName(req.employee)}</td>
+                                            <td className="px-4 py-3"><StatusBadge status={req.status} /></td>
                                             <td className="px-4 py-3 text-center"><StockBadge stock={req.stock} /></td>
                                             <td className="px-4 py-3 text-gray-700">{req.deliveryDate ? formatDate(req.deliveryDate) : <span className="text-gray-400">—</span>}</td>
                                             <td className="px-4 py-3 text-center">
@@ -365,6 +744,19 @@ function WarehouseDetailPage() {
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
+                                                </td>
+                                            )}
+                                            {isEncargado && (
+                                                <td className="px-4 py-3 text-center">
+                                                    {(req.status === 'Aprobada' || req.status === 'Sin Stock') && (
+                                                        <button
+                                                            onClick={() => setDeliverTarget(req)}
+                                                            title="Registrar entrega"
+                                                            className="p-2 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors cursor-pointer"
+                                                        >
+                                                            <PackageCheck className="w-4 h-4" />
+                                                        </button>
+                                                    )}
                                                 </td>
                                             )}
                                         </tr>
@@ -408,6 +800,15 @@ function WarehouseDetailPage() {
             <RequestDetailModal
                 req={selectedRequest}
                 onClose={() => setSelectedRequest(null)}
+            />
+        )}
+
+        {/* Modal entrega */}
+        {deliverTarget && (
+            <DeliverModal
+                req={deliverTarget}
+                onClose={() => setDeliverTarget(null)}
+                onSuccess={handleDeliverSuccess}
             />
         )}
         </>

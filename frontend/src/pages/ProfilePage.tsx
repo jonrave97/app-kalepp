@@ -42,7 +42,7 @@ function ProfilePage() {
             setSizesForm(prev => ({
                 ...prev,
                 [parent]: {
-                    ...(prev[parent as keyof UserSizes] as any),
+                    ...(prev[parent as keyof UserSizes] as Record<string, string>),
                     [child]: value,
                 },
             }));
@@ -63,11 +63,13 @@ function ProfilePage() {
                 showConfirmButton: false,
             });
             setIsEditing(false);
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const msg = (error as { response?: { data?: { message?: string } } })
+                ?.response?.data?.message;
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: error.response?.data?.message || 'No se pudieron actualizar las tallas',
+                text: msg || 'No se pudieron actualizar las tallas',
             });
         } finally {
             setLoading(false);
@@ -125,7 +127,9 @@ function ProfilePage() {
                     </div>
                     <h1 className="text-xl font-semibold text-gray-900 mt-1">{auth.name}</h1>
                     {auth.position && (
-                        <span className="text-sm text-gray-500">{auth.position}</span>
+                        <span className="text-sm text-gray-500">
+                            {typeof auth.position === 'object' ? auth.position.name : auth.position}
+                        </span>
                     )}
                 </div>
 
@@ -133,9 +137,10 @@ function ProfilePage() {
                 <div className="bg-white rounded-2xl p-6 space-y-3">
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Información</p>
                     <InfoRow label="Correo" value={auth.email} />
-                    {auth.area && <InfoRow label="Área" value={auth.area} />}
-                    {auth.company && <InfoRow label="Empresa" value={auth.company} />}
-                    {auth.rut && <InfoRow label="RUT" value={auth.rut} />}
+                    {auth.area       && <InfoRow label="Área"             value={auth.area} />}
+                    {auth.company    && <InfoRow label="Empresa"          value={auth.company} />}
+                    {auth.costCenter && <InfoRow label="Centro de Costo"  value={auth.costCenter} />}
+                    {auth.rut        && <InfoRow label="RUT"              value={auth.rut} />}
                 </div>
 
                 {/* Tallas EPP */}

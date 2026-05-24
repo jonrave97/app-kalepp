@@ -52,7 +52,8 @@ const userSchema = mongoose.Schema
         trim: true
     },
     rut: {
-        type: Number,
+        type: String,
+        trim: true,
     },
     token:{
     	type: String,

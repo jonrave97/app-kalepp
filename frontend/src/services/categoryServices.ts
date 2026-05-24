@@ -1,4 +1,5 @@
 import API from './api';
+import { invalidate } from './cache';
 import type { Category, CategoriesResponse } from '@/types/category';
 
 export const getCategories = async (page = 1, search = ''): Promise<CategoriesResponse> => {
@@ -13,15 +14,18 @@ export const getAllCategories = async (): Promise<Pick<Category, '_id' | 'name'>
 
 export const createCategory = async (name: string): Promise<Category> => {
     const response = await API.post('/categories', { name });
+    invalidate('dashboard:stats');
     return response.data;
 };
 
 export const updateCategory = async (id: string, name: string): Promise<Category> => {
     const response = await API.put(`/categories/${id}`, { name });
+    invalidate('dashboard:stats');
     return response.data;
 };
 
 export const toggleCategory = async (id: string): Promise<Category> => {
     const response = await API.patch(`/categories/${id}/toggle`);
+    invalidate('dashboard:stats');
     return response.data;
 };

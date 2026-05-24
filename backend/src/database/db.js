@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import Counter from '../models/counterModel.js';
+import Request from '../models/requestModel.js';
 
 const connectDB = async () => {
     const baseURI = process.env.MONGO_URI;
@@ -12,7 +14,18 @@ const connectDB = async () => {
     try{
         await mongoose.connect(baseURI); 
         console.log('Conectado a la base de datos correctamente');
-        
+
+        // Inicializar contador de solicitudes con el máximo código existente.
+        // $setOnInsert garantiza que solo se aplica si el documento NO existe aún,
+        // por lo que es seguro ejecutarlo en cada arranque sin sobrescribir el valor actual.
+        const maxRequest = await Request.findOne({}, { code: 1 }).sort({ code: -1 });
+        await Counter.findOneAndUpdate(
+            { _id: 'requestCode' },
+            { $setOnInsert: { seq: maxRequest?.code ?? 0 } },
+            { upsert: true }
+        );
+        console.log(`Contador de solicitudes inicializado en: ${maxRequest?.code ?? 0}`);
+
         // Eventos para manejar descon  exiones después de la conexión inicial
         mongoose.connection.on('disconnected', () => {
             console.warn('MongoDB desconectado');

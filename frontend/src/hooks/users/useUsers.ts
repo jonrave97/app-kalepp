@@ -34,6 +34,7 @@ export function useUsers() {
         fetchUsers(newPage, search);
     };
 
+    /** Término de búsqueda confirmado (último "Buscar" presionado). */
     return {
         users,
         total,

@@ -15,7 +15,7 @@ export const AdminRoute = ({ children }: RouteGuardProps) => {
 
     const role = auth.rol ?? auth.role;
     if (role !== 'Administrador') {
-        return <Navigate to="/dashboard" replace />;
+        return <Navigate to="/profile" replace />;
     }
 
     return <>{children}</>;

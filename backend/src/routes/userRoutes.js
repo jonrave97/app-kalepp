@@ -1,6 +1,9 @@
 import {Router} from 'express';
-import {loginUser, getProfile, logoutUser, profileCache, forgotPassword, resetPassword}  from '../controllers/authController.js';
+import {loginUser, getProfile, logoutUser, forgotPassword, resetPassword}  from '../controllers/authController.js';
 import authMiddleware from '../middlewares/authMiddleware.js';
+import requireRole from '../middlewares/roleMiddleware.js';
+import validateObjectId from '../middlewares/validateObjectId.js';
+import { loginLimiter, passwordResetLimiter } from '../middlewares/rateLimiter.js';
 import {
     getUsers,
     getAllUsersMin,
@@ -8,61 +11,33 @@ import {
     createUser,
     updateUser,
     toggleUser,
+    updateProfileSizes,
+    activateAccount,
+    getMyTeam,
 } from '../controllers/userController.js';
-import User from '../models/userModel.js';
 
 const router = Router();
 
-router.post('/login', loginUser);
-router.post('/forgot-password', forgotPassword);
-router.post('/reset-password/:token', resetPassword);
+router.post('/login',                  loginLimiter,          loginUser);
+router.post('/forgot-password',        passwordResetLimiter,  forgotPassword);
+router.post('/reset-password/:token',  passwordResetLimiter,  resetPassword);
+router.post('/activate/:token',        passwordResetLimiter,  activateAccount);
 
 router.use(authMiddleware); // Proteger las rutas siguientes
 
-// Rutas protegidas (ejemplo)
-router.get('/profile', getProfile); // Obtener el perfil del usuario autenticado (Protegido)
-router.patch('/profile/sizes', async (req, res) => {
-    try {
-        const { sizes } = req.body;
+// ── Perfil (todos los autenticados) ───────────────────────────────────────────
+router.get('/profile', getProfile);
+router.patch('/profile/sizes', updateProfileSizes);
+router.post('/logout', logoutUser);
+router.get('/my-team', requireRole('Jefatura'), getMyTeam);
 
-        const user = await User.findByIdAndUpdate(
-            req.userId,
-            { sizes },
-            { new: true, runValidators: true }
-        )
-        .select('-password -token')
-        .populate('position', 'name')
-        .populate('bosses._id', 'name email')
-        .lean();
-
-        if (!user) {
-            return res.status(404).json({ message: 'Usuario no encontrado' });
-        }
-
-        const payload = {
-            ...user,
-            position: user.position?.name ?? null,
-            bosses: (user.bosses || []).map(b => ({ _id: b._id })),
-        };
-
-        // Invalidar caché del servidor para este usuario
-        profileCache.delete(req.userId);
-
-        res.json(payload);
-    } catch (error) {
-        console.error('Error al actualizar tallas:', error);
-        res.status(500).json({ message: 'Error al actualizar tallas' });
-    }
-});
-router.post('/logout', logoutUser);  // Cerrar sesión del usuario (Protegido)
-
-// ── Rutas administración de usuarios ──────────────────────────────────────────
-router.get('/admin/active',     getActiveUsers);
-router.get('/admin/all',        getAllUsersMin);
-router.get('/admin',            getUsers);
-router.post('/admin',           createUser);
-router.put('/admin/:id',        updateUser);
-router.patch('/admin/:id/toggle', toggleUser);
+// ── Rutas de administración de usuarios ───────────────────────────────────────
+router.get('/admin/active',       getActiveUsers);
+router.get('/admin/all',          getAllUsersMin);
+router.get('/admin',              requireRole('Administrador'), getUsers);
+router.post('/admin',             requireRole('Administrador'), createUser);
+router.put('/admin/:id',          requireRole('Administrador'), validateObjectId, updateUser);
+router.patch('/admin/:id/toggle', requireRole('Administrador'), validateObjectId, toggleUser);
 
 
 export default router;

@@ -225,11 +225,11 @@ interface UserModalProps {
 function UserModal({ user, onClose, onSaved }: UserModalProps) {
     const [name,       setName]       = useState(user?.name ?? '');
     const [email,      setEmail]      = useState(user?.email ?? '');
-    const [password,   setPassword]   = useState('');
     const [rol,        setRol]        = useState(user?.rol ?? '');
     const [position,   setPosition]   = useState<string>(() => getPositionId(user?.position));
     const [company,    setCompany]    = useState(user?.company ?? '');
     const [area,       setArea]       = useState(user?.area ?? '');
+    const [costCenter, setCostCenter] = useState(user?.costCenter ?? '');
     const [warehouses, setWarehouses] = useState(user?.warehouses ?? '');
     const [bosses,     setBosses]     = useState<string[]>(() => getBossIds(user?.bosses));
 
@@ -268,7 +268,6 @@ function UserModal({ user, onClose, onSaved }: UserModalProps) {
         e.preventDefault();
         if (!name.trim())  { setError('El nombre es obligatorio'); return; }
         if (!email.trim()) { setError('El correo es obligatorio'); return; }
-        if (!user && !password) { setError('La contraseña es obligatoria'); return; }
         if (!rol) { setError('El rol es obligatorio'); return; }
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email.trim())) { setError('Formato de correo inválido'); return; }
@@ -279,11 +278,11 @@ function UserModal({ user, onClose, onSaved }: UserModalProps) {
                 name:       name.trim().toLowerCase(),
                 email:      email.trim().toLowerCase(),
                 rol,
-                ...(password    && { password }),
-                ...(position    && { position }),
-                ...(company     && { company }),
-                ...(area.trim() && { area: area.trim() }),
-                ...(warehouses  && { warehouses }),
+                ...(position        && { position }),
+                ...(company         && { company }),
+                ...(area.trim()     && { area: area.trim() }),
+                ...(costCenter.trim() && { costCenter: costCenter.trim() }),
+                ...(warehouses      && { warehouses }),
                 bosses,
             };
             if (user) {
@@ -344,20 +343,6 @@ function UserModal({ user, onClose, onSaved }: UserModalProps) {
                             />
                         </div>
 
-                        {/* Contraseña */}
-                        <div>
-                            <label className={labelClass}>
-                                {user ? 'Contraseña (vacío = sin cambios)' : 'Contraseña *'}
-                            </label>
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={e => { setPassword(e.target.value); setError(''); }}
-                                placeholder="Mínimo 8 caracteres"
-                                className={inputClass}
-                            />
-                        </div>
-
                         {/* Rol */}
                         <div>
                             <label className={labelClass}>Rol *</label>
@@ -404,6 +389,18 @@ function UserModal({ user, onClose, onSaved }: UserModalProps) {
                                 value={area}
                                 onChange={e => setArea(e.target.value)}
                                 placeholder="Ej: Operaciones"
+                                className={inputClass}
+                            />
+                        </div>
+
+                        {/* Centro de Costo */}
+                        <div>
+                            <label className={labelClass}>Centro de Costo</label>
+                            <input
+                                type="text"
+                                value={costCenter}
+                                onChange={e => setCostCenter(e.target.value)}
+                                placeholder="Ej: 1294"
                                 className={inputClass}
                             />
                         </div>
@@ -466,6 +463,7 @@ function UsersPage() {
         total,
         totalPages,
         page,
+        search,
         inputSearch,
         setInputSearch,
         loading,
@@ -485,7 +483,8 @@ function UsersPage() {
     const openCreate = () => { setEditTarget(null); setModalOpen(true); };
     const openEdit   = (u: User) => { setEditTarget(u); setModalOpen(true); };
     const closeModal = () => setModalOpen(false);
-    const refresh    = () => fetchUsers(page, inputSearch);
+    // Usa `search` (término comprometido) para no perder el filtro activo al refrescar
+    const refresh    = () => fetchUsers(page, search);
 
     const handleToggle = async (u: User) => {
         const action = u.disabled ? 'habilitar' : 'deshabilitar';

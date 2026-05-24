@@ -18,6 +18,7 @@ export const createEpp = async (data: {
 }): Promise<Epp> => {
     const response = await API.post('/epps', data);
     invalidate('epps:all');
+    invalidate('dashboard:stats');
     return response.data;
 };
 
@@ -29,11 +30,13 @@ export const updateEpp = async (id: string, data: {
 }): Promise<Epp> => {
     const response = await API.put(`/epps/${id}`, data);
     invalidate('epps:all');
+    invalidate('dashboard:stats');
     return response.data;
 };
 
 export const toggleEpp = async (id: string): Promise<Epp> => {
     const response = await API.patch(`/epps/${id}/toggle`);
     invalidate('epps:all');
+    invalidate('dashboard:stats');
     return response.data;
 };

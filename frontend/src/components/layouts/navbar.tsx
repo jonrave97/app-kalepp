@@ -40,7 +40,15 @@ function Navbar() {
         navigate('/login');
     };
 
-    const isAdmin = auth?.rol === 'Administrador' || auth?.role === 'Administrador';
+    const isAdmin     = auth?.rol === 'Administrador' || auth?.role === 'Administrador';
+    const isEncargado = auth?.rol === 'Encargado de Bodega' || auth?.role === 'Encargado de Bodega';
+    const isJefatura  = auth?.rol === 'Jefatura'           || auth?.role === 'Jefatura';
+
+    /** Ruta home según rol — evita que el logo envíe a /dashboard a no-admins */
+    const homeRoute = isAdmin ? '/dashboard'
+        : isJefatura          ? '/my-team'
+        : isEncargado         ? '/my-warehouse'
+        : '/profile';
 
     const navLinkClass = (path: string) =>
         `block py-2 px-3 text-white rounded transition-all
@@ -52,18 +60,20 @@ function Navbar() {
             <div className="max-w-7xl flex items-center justify-between mx-auto p-4">
 
                 {/* Logo */}
-                <Link to="/dashboard" className="flex items-center gap-3 shrink-0">
+                <Link to={homeRoute} className="flex items-center gap-3 shrink-0">
                     <img src="/kaltire.png" className="h-7" alt="Kaltire Logo" />
                 </Link>
 
                 {/* Desktop nav */}
                 <ul className="hidden md:flex items-center gap-1">
 
+                    {isAdmin && (
                     <li>
                         <Link to="/dashboard" className={navLinkClass('/dashboard')}>
-                            Home
+                            Dashboard
                         </Link>
                     </li>
+                    )}
 
                     <li>
                         <Link to="/profile" className={navLinkClass('/profile')}>
@@ -143,6 +153,24 @@ function Navbar() {
                     </li>
                     )}
 
+                    {/* Link Mi Bodega — solo Encargado de Bodega */}
+                    {isEncargado && (
+                    <li>
+                        <Link to="/my-warehouse" className={navLinkClass('/my-warehouse')}>
+                            Mi Bodega
+                        </Link>
+                    </li>
+                    )}
+
+                    {/* Link Mi Equipo — solo Jefatura */}
+                    {isJefatura && (
+                    <li>
+                        <Link to="/my-team" className={navLinkClass('/my-team')}>
+                            Mi Equipo
+                        </Link>
+                    </li>
+                    )}
+
                     {/* Dropdown Solicitudes */}
                     <li className="relative" ref={requestsRef}>
                         <button
@@ -199,11 +227,13 @@ function Navbar() {
                         )}
                     </li>
 
+                    {isAdmin && (
                     <li>
                         <Link to="/reports" className={navLinkClass('/reports')}>
                             Reportes
                         </Link>
                     </li>
+                    )}
 
                 </ul>
 
@@ -242,11 +272,13 @@ function Navbar() {
                 <div className="md:hidden bg-primary border-t border-white/10 px-4 pb-4">
                     <ul className="flex flex-col gap-1 pt-2">
 
+                        {isAdmin && (
                         <li>
                             <Link to="/dashboard" className={navLinkClass('/dashboard')}>
-                                Home
+                                Dashboard
                             </Link>
                         </li>
+                        )}
 
                         <li>
                             <Link to="/profile" className={navLinkClass('/profile')}>
@@ -323,6 +355,24 @@ function Navbar() {
                         </li>
                         )}
 
+                        {/* Link Mi Bodega — solo Encargado de Bodega (móvil) */}
+                        {isEncargado && (
+                        <li>
+                            <Link to="/my-warehouse" className={navLinkClass('/my-warehouse')}>
+                                Mi Bodega
+                            </Link>
+                        </li>
+                        )}
+
+                        {/* Link Mi Equipo — solo Jefatura (móvil) */}
+                        {isJefatura && (
+                        <li>
+                            <Link to="/my-team" className={navLinkClass('/my-team')}>
+                                Mi Equipo
+                            </Link>
+                        </li>
+                        )}
+
                         {/* Accordion Solicitudes (móvil) */}
                         <li>
                             <button
@@ -376,11 +426,13 @@ function Navbar() {
                             )}
                         </li>
 
+                        {isAdmin && (
                         <li>
                             <Link to="/reports" className={navLinkClass('/reports')}>
                                 Reportes
                             </Link>
                         </li>
+                        )}
 
                     </ul>
 

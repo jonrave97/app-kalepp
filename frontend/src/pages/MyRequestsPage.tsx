@@ -32,6 +32,7 @@ function MyRequestsPage() {
             onSearchChange={setInputSearch}
             onSearch={handleSearch}
             onPageChange={handlePageChange}
+            workerView
         />
     );
 }

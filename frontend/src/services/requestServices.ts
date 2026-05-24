@@ -19,11 +19,22 @@ export interface AdminRequest {
     position: string;
     reason: string;
     observation?: string;
-    employee: { _id: string; name: string } | string;
+    employee: {
+        _id: string;
+        name: string;
+        sizes?: {
+            footwear?: string;
+            gloves?: string;
+            pants?: { letter?: string; number?: string };
+            shirtJacket?: string;
+        };
+    } | string;
     approver?: { _id: string; name: string } | string;
     approveDate?: string;
     epps: { epp: { _id: string; name: string; code?: string } | string; quantity: number }[];
     deliveryDate?: string;
+    expectedStockDate?: string;
+    annulReason?: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -33,9 +44,24 @@ export const getAdminRequests = async (
     page = 1,
     search = '',
     limit = 10,
+    status = '',
 ): Promise<AdminRequestsResponse> => {
     const response = await API.get('/requests', {
-        params: { warehouse: warehouseId, page, search, limit },
+        params: { warehouse: warehouseId, page, search, limit, ...(status ? { status } : {}) },
+    });
+    return response.data;
+};
+
+// Historial de solicitudes de un miembro del equipo (Jefatura)
+export const getTeamMemberRequests = async (
+    employeeId: string,
+    page = 1,
+    search = '',
+    limit = 10,
+    status = '',
+): Promise<AdminRequestsResponse> => {
+    const response = await API.get('/requests', {
+        params: { employee: employeeId, page, search, limit, ...(status ? { status } : {}) },
     });
     return response.data;
 };
@@ -81,6 +107,21 @@ export const createRequest = async (
         headers: { 'Content-Type': undefined },
     });
     if (payload.employee) invalidateByPrefix(`requests:employee:${payload.employee}:`);
+    return response.data;
+};
+
+export const deliverRequest = async (id: string): Promise<AdminRequest> => {
+    const response = await API.patch(`/requests/${id}/deliver`);
+    return response.data;
+};
+
+export const reportNoStock = async (id: string, expectedDate: string): Promise<AdminRequest> => {
+    const response = await API.patch(`/requests/${id}/no-stock`, { expectedDate });
+    return response.data;
+};
+
+export const annulRequest = async (id: string, reason: string): Promise<AdminRequest> => {
+    const response = await API.patch(`/requests/${id}/annul`, { reason });
     return response.data;
 };
 

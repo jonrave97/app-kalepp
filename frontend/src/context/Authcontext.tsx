@@ -34,8 +34,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         const authenticateUser = async () => {
             // Verificar si hay indicios de sesión activa
             // Si nunca han hecho login, no tiene sentido hacer la petición
-            const hasSessionFlag = sessionStorage.getItem('hasSession');
-            
+            const hasSessionFlag = localStorage.getItem('hasSession');
+
             if (!hasSessionFlag) {
                 // No hay indicios de sesión, no hacer petición innecesaria
                 setAuth(null);
@@ -50,10 +50,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                     API.get('/users/profile').then(r => r.data)
                 );
                 setAuth(data);
-            } catch (error: any) {
+            } catch (error: unknown) {
                 // Si falla (401, token expiró), limpiar flag y caché
-                if (error.response?.status === 401) {
-                    sessionStorage.removeItem('hasSession');
+                const axiosErr = error as { response?: { status?: number } };
+                if (axiosErr.response?.status === 401) {
+                    localStorage.removeItem('hasSession');
                     invalidate('auth:profile');
                 }
                 // console.error('❌ Error al autenticar usuario:', error);
@@ -75,7 +76,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             console.error('Error en logout:', error);
         } finally {
             // Limpiar flag de sesión e invalidar caché de perfil
-            sessionStorage.removeItem('hasSession');
+            localStorage.removeItem('hasSession');
             invalidate('auth:profile');
             setAuth(null);
         }

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import Counter from './counterModel.js';
 
 const { Schema, Types } = mongoose;
 
@@ -48,7 +49,7 @@ const requestSchema = new Schema(
         status: {
             type: String,
             default: 'Pendiente',
-            enum: ['Pendiente', 'Aprobada', 'Rechazada', 'Entregada'],
+            enum: ['Pendiente', 'Aprobada', 'Rechazada', 'Entregada', 'Sin Stock', 'Cambios solicitados'],
         },
         stock: {
             type: String,
@@ -63,6 +64,13 @@ const requestSchema = new Schema(
         },
         deliveryDate: {
             type: Date,
+        },
+        expectedStockDate: {
+            type: Date,
+        },
+        annulReason: {
+            type: String,
+            trim: true,
         },
         approver: {
             type: Types.ObjectId,
@@ -87,11 +95,21 @@ const requestSchema = new Schema(
     { timestamps: true }
 );
 
-// Generar código correlativo antes de guardar
+// ── Índices para optimizar las consultas más frecuentes ──────────────────────
+requestSchema.index({ employee: 1, date: -1 }); // solicitudes por empleado ordenadas por fecha
+requestSchema.index({ warehouse: 1, date: -1 }); // solicitudes por bodega ordenadas por fecha
+requestSchema.index({ status: 1 });              // filtro por estado (Pendiente, Aprobada, etc.)
+
+// Generar código correlativo antes de guardar — operación atómica con contador dedicado.
+// Usa findOneAndUpdate + $inc para garantizar unicidad incluso bajo alta concurrencia.
 requestSchema.pre('save', async function (next) {
     if (this.isNew) {
-        const last = await this.constructor.findOne({}, { code: 1 }).sort({ code: -1 });
-        this.code = last ? last.code + 1 : 1;
+        const counter = await Counter.findOneAndUpdate(
+            { _id: 'requestCode' },
+            { $inc: { seq: 1 } },
+            { new: true, upsert: true }
+        );
+        this.code = counter.seq;
     }
     next();
 });

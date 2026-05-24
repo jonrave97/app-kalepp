@@ -13,7 +13,6 @@ const transporter = nodemailer.createTransport({
     },
 });
 
-console.log('[mailer] Configurado con host:', process.env.SMTP_HOST, 'port:', process.env.SMTP_PORT);
 // ─── HTML template ────────────────────────────────────────────────────────────
 function buildHtml({ request, employeeName, positionName, warehouseName, eppItems, inlineCount }) {
     const eppRows = eppItems.map(e => `
@@ -129,7 +128,7 @@ function buildHtml({ request, employeeName, positionName, warehouseName, eppItem
               <!-- Button -->
               <tr>
                 <td style="padding-top:26px;text-align:center;">
-                  <a href="${process.env.FRONTEND_URL}/warehousemanager"
+                   <a href="${process.env.FRONTEND_URL}/my-warehouse"
                      style="
                        display:inline-block;
                        background:rgb(255 105 0);
@@ -225,7 +224,85 @@ export const sendRequestEmail = async ({
         attachments,
     });
 
-    console.log(`[mailer] Correo enviado a: ${to}`);
+    console.log(`[mailer] Correo de solicitud enviado a: ${to}`);
+};
+
+// ─── Out of stock email ───────────────────────────────────────────────────────
+export const sendOutOfStockEmail = async ({ request, employeeName, employeeEmail, expectedDate }) => {
+    if (!employeeEmail) {
+        console.warn('[mailer] Sin email de empleado, correo de sin stock omitido');
+        return;
+    }
+
+    const fechaEstimada = new Date(expectedDate).toLocaleDateString('es-CL', {
+        year: 'numeric', month: 'long', day: 'numeric',
+    });
+
+    const eppRows = request.epps.map(e => {
+        const name = (e.epp && typeof e.epp === 'object') ? e.epp.name : '—';
+        return `
+        <tr>
+            <td style="padding:9px 14px;border-bottom:1px solid #f3f4f6;font-size:13px;color:#374151;">${name}</td>
+            <td style="padding:9px 14px;border-bottom:1px solid #f3f4f6;font-size:13px;color:#374151;text-align:center;">${e.quantity}</td>
+        </tr>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" bgcolor="#f3f4f6">
+  <tr>
+    <td align="center" style="padding:40px 16px;">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;max-width:600px;">
+        <tr>
+          <td style="background:rgb(255 105 0);padding:28px 32px;">
+            <p style="margin:0;color:#FFD0B0;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;">Notificación de Solicitud</p>
+            <h1 style="margin:6px 0 0;color:#ffffff;font-size:22px;font-weight:700;">Stock no disponible — Solicitud N° ${request.code}</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;">
+            <p style="margin:0 0 16px;font-size:14px;color:#374151;">Hola <strong>${employeeName}</strong>,</p>
+            <p style="margin:0 0 20px;font-size:14px;color:#374151;">
+              Te informamos que la bodega no cuenta con stock suficiente para completar tu solicitud en este momento.
+              Los EPPs solicitados estarán disponibles aproximadamente el:
+            </p>
+            <div style="background:#FFF0E6;border:1px solid #FFB580;border-radius:8px;padding:16px 20px;margin:0 0 24px;text-align:center;">
+              <p style="margin:0;font-size:20px;font-weight:700;color:#FF6900;">${fechaEstimada}</p>
+            </div>
+            <p style="margin:0 0 16px;font-size:11px;font-weight:bold;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">EPPs pendientes:</p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;border-collapse:collapse;">
+              <thead>
+                <tr style="background:#f9fafb;">
+                  <th style="padding:10px 14px;font-size:11px;font-weight:bold;color:#6b7280;text-transform:uppercase;text-align:left;border-bottom:1px solid #e5e7eb;">EPP</th>
+                  <th style="padding:10px 14px;font-size:11px;font-weight:bold;color:#6b7280;text-transform:uppercase;text-align:center;border-bottom:1px solid #e5e7eb;width:70px;">Cant.</th>
+                </tr>
+              </thead>
+              <tbody>${eppRows}</tbody>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;">
+            <p style="margin:0;font-size:11px;color:#9ca3af;text-align:center;">Este correo fue generado automáticamente. Por favor no respondas a este mensaje.</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+    await transporter.sendMail({
+        from:    `"Sistema Kalepp" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+        to:      employeeEmail,
+        subject: `Solicitud N° ${request.code} — Stock no disponible`,
+        html,
+    });
+
+    console.log(`[mailer] Correo sin stock enviado a: ${employeeEmail}`);
 };
 
 // ─── Password reset email ─────────────────────────────────────────────────────
@@ -288,3 +365,72 @@ export const sendPasswordResetEmail = async ({ to, userName, resetUrl }) => {
 
     console.log(`[mailer] Correo de reset enviado a: ${to}`);
 };
+
+// ─── Account activation email ─────────────────────────────────────────────────
+export const sendActivationEmail = async ({ to, userName, activationUrl }) => {
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr>
+    <td align="center" style="padding:40px 16px;">
+      <table width="500" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;max-width:500px;">
+        <tr>
+          <td style="background:rgb(255,105,0);padding:28px 32px;">
+            <p style="margin:0;color:#FFD0B0;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;">Sistema Kalepp</p>
+            <h1 style="margin:6px 0 0;color:#ffffff;font-size:22px;font-weight:700;">Bienvenido/a al sistema</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;">
+            <p style="margin:0 0 16px;font-size:14px;color:#374151;">Hola <strong>${userName}</strong>,</p>
+            <p style="margin:0 0 20px;font-size:14px;color:#374151;">
+              Tu cuenta ha sido creada. Para comenzar a usar el sistema, debes activarla y crear tu contraseña haciendo clic en el botón de abajo.
+              El enlace es válido por <strong>24 horas</strong>.
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td align="center" style="padding-bottom:24px;">
+                  <a href="${activationUrl}"
+                     style="display:inline-block;background:rgb(255,105,0);color:#ffffff;padding:13px 28px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:14px;">
+                    Activar mi cuenta
+                  </a>
+                </td>
+              </tr>
+            </table>
+            <div style="background:#FFF0E6;border:1px solid #FFB580;border-radius:8px;padding:14px 18px;margin-bottom:20px;">
+              <p style="margin:0;font-size:12px;color:#FF6900;">
+                Si no puedes hacer clic en el botón, copia y pega este enlace en tu navegador:<br/>
+                <a href="${activationUrl}" style="color:#FF6900;word-break:break-all;">${activationUrl}</a>
+              </p>
+            </div>
+            <p style="margin:0;font-size:12px;color:#9ca3af;">
+              Si no esperabas este correo, puedes ignorarlo de forma segura.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;">
+            <p style="margin:0;font-size:11px;color:#9ca3af;text-align:center;">
+              Este correo fue generado automáticamente. Por favor no respondas a este mensaje.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+    await transporter.sendMail({
+        from:    `"Sistema Kalepp" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+        to,
+        subject: 'Activa tu cuenta — Kalepp',
+        html,
+    });
+
+    console.log(`[mailer] Correo de activación enviado a: ${to}`);
+};
+

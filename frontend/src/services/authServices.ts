@@ -30,6 +30,11 @@ export const resetPassword = async (token: string, password: string) => {
   const response = await API.post(`/users/reset-password/${token}`, { password });
   return response.data;
 };
+
+export const activateAccount = async (token: string, password: string) => {
+  const response = await API.post(`/users/activate/${token}`, { password });
+  return response.data;
+};
 export const updateUserSizes = async (sizes: UserSizes) => {
   try {
     const response = await API.patch('/users/profile/sizes', { sizes });

@@ -1,38 +1,42 @@
 import jwt from 'jsonwebtoken';
+import User from '../models/userModel.js';
 
 /**
  * Middleware de autenticación
- * Verifica que el usuario tenga un token válido en las cookies
- * antes de permitir el acceso a rutas protegidas
+ * Verifica que el usuario tenga un token válido en las cookies,
+ * que exista en la DB y no esté deshabilitado.
+ * Adjunta req.userId, req.userRole y req.userWarehouse para uso
+ * en middlewares y controllers posteriores.
  */
-const authMiddleware = (req, res, next) => {
-  // Leer el token desde las cookies (no desde headers Authorization)
-  const token = req.cookies.token;
-  
-  // Si no existe el token, rechazar la petición
-  if (!token) {
-    return res.status(401).json({ 
-      message: 'No autorizado - Token no proporcionado' 
-    });
-  }
+const authMiddleware = async (req, res, next) => {
+    const token = req.cookies.token;
 
-  try {
-    // Verificar que el token sea válido y no haya expirado
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Adjuntar el ID del usuario al objeto req
-    // Esto permite que los controladores accedan a req.userId
-    req.userId = decoded.id;
-    
-    // Si todo está correcto, continuar al siguiente middleware o controlador
-    next();
-    
-  } catch (error) {
-    // Si el token es inválido, está manipulado o expiró
-    return res.status(401).json({ 
-      message: 'Token inválido o expirado' 
-    });
-  }
+    if (!token) {
+        return res.status(401).json({ message: 'No autorizado - Token no proporcionado' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        // Obtener rol, bodega asignada y estado del usuario desde DB
+        const user = await User.findById(decoded.id).select('rol warehouses disabled');
+
+        if (!user) {
+            return res.status(401).json({ message: 'Usuario no encontrado' });
+        }
+
+        if (user.disabled) {
+            return res.status(401).json({ message: 'Tu cuenta ha sido deshabilitada' });
+        }
+
+        req.userId        = decoded.id;
+        req.userRole      = user.rol;
+        req.userWarehouse = user.warehouses;
+
+        next();
+    } catch (error) {
+        return res.status(401).json({ message: 'Token inválido o expirado' });
+    }
 };
 
 export default authMiddleware;

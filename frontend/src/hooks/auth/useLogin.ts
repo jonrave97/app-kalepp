@@ -6,6 +6,17 @@ import { useLoginForm , useAuthenticate  } from './useLoginForm';
 import API from '@/services/api';
 import Swal from 'sweetalert2';
 
+/** Devuelve la ruta de inicio según el rol del usuario autenticado. */
+function getHomeRoute(user: User): string {
+    const role = user.rol ?? user.role;
+    switch (role) {
+        case 'Administrador':        return '/dashboard';
+        case 'Jefatura':             return '/my-team';
+        case 'Encargado de Bodega':  return '/my-warehouse';
+        default:                     return '/profile';
+    }
+}
+
 // Tipo de respuesta del backend en login
 type LoginResponse = {
   message: string;
@@ -54,35 +65,39 @@ export const useLogin = () =>
 	      await auth.authenticate(
 	        form.email,
 	        form.password,
-	        async (response: LoginResponse) => {
+	        async (raw: unknown) => {
+	          const response = raw as LoginResponse;
 	          // La cookie ya está establecida por el backend automáticamente
 	          
 	          // Establecer flag de sesión para futuras verificaciones
-	          sessionStorage.setItem('hasSession', 'true');
-	          
+	          localStorage.setItem('hasSession', 'true');
+
 	          // Obtener datos completos del perfil en lugar de usar los datos mínimos del login
 	          try {
 	            const profileResponse = await API.get('/users/profile');
-	            setAuth(profileResponse.data);
+	            const profileData: User = profileResponse.data;
+	            setAuth(profileData);
+	            form.resetForm();
+	            navigate(getHomeRoute(profileData), { replace: true });
 	          } catch (error) {
 	            console.error('Error al obtener perfil completo:', error);
-	            // Fallback: usar datos del login
-	            setAuth({
-	              _id: response.user._id,
-	              email: response.user.email,
-	              name: response.user.name || response.user.email,
-	              role: response.user.role,
-	            });
+	            // Fallback: usar datos mínimos del login
+	            // El login responde con `id` (no `_id`) y `rol` (no `role`)
+	            const loginUser = response.user as User & { id?: string };
+	            const fallback: User = {
+	              _id:   loginUser._id ?? loginUser.id ?? '',
+	              email: loginUser.email,
+	              name:  loginUser.name || loginUser.email,
+	              rol:   loginUser.rol,
+	            };
+	            setAuth(fallback);
+	            form.resetForm();
+	            navigate(getHomeRoute(fallback), { replace: true });
 	          }
-
-	          form.resetForm();
-
-	          // Navegar al dashboard
-	          navigate('/dashboard', { replace: true });
 	        }
 	      );
 	    } 
-	    catch (err) 
+	    catch
 	    {
 	      // Los errores de autenticación ya están en auth.error
 			Swal.fire({

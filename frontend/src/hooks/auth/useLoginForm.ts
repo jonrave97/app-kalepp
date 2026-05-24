@@ -1,7 +1,6 @@
 import { loginUser } from '@/services/authServices';
 import {useState} from 'react';
-// import {useNavigate} from 'react-router-dom';
-// import {loginUser} from '@services/authService';
+
 
 export const useLoginForm = () => 
 {
@@ -42,23 +41,23 @@ export const useAuthenticate = () =>
 	const authenticate = async (
 		email: string,
 		password: string,
-		onSuccess: (response: any) => void
-	) => 
+		onSuccess: (response: unknown) => void | Promise<void>
+	) =>
 	{
 		setLoading(true); // Iniciar carga
 		setError(null); // Resetear error
 		try
 		{
-			const response =  await loginUser(email, password); // Llamada al servicio de login 
+			const response = await loginUser(email, password);
 
-			console.log(response.data);
 
 			onSuccess(response); // Ejecutar callback de éxito
 
 			return response; // Devolver respuesta
-		}catch (err: any)
+		}catch (err: unknown)
 		{
-			const errorMessage = err.response?.data?.message || 'Error de autenticación';
+			const axiosErr = err as { response?: { data?: { message?: string } } };
+			const errorMessage = axiosErr.response?.data?.message || 'Error de autenticación';
 			setError(errorMessage);
 			throw err; // Re-lanzar error para manejo externo
 		} finally

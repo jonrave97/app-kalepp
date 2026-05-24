@@ -60,13 +60,18 @@ export const loginUser = async (req, res) => {
 		//Buscar el usuario por email (CON contraseña para validar)
 		const userFound = await getUserbyEmailWithPassword(email.trim().toLowerCase());
 		if (!userFound) {
-			return res.status(401).json({ message: "Email o contraseña incorrectos a" });
+			return res.status(401).json({ message: "Email o contraseña incorrectos" });
 		}
 
 		// Verificar la contraseña y compara con la almacenada
 		const isMatch = await bcrypt.compare(password, userFound.password);
 		if (!isMatch) {
 			return res.status(401).json({ message: "Credenciales incorrectas" });
+		}
+
+		// Verificar que la cuenta esté activada
+		if (!userFound.confirmed) {
+			return res.status(403).json({ message: 'Tu cuenta aún no ha sido activada. Revisa tu correo electrónico para encontrar el enlace de activación.' });
 		}
 
 		// Poblar position para obtener el nombre del cargo
@@ -106,7 +111,9 @@ export const loginUser = async (req, res) => {
 export const logoutUser = (req, res) => {
 	res.cookie('token', '', {
 		httpOnly: true,
-		expires: new Date(0)
+		secure:   process.env.NODE_ENV === 'production',
+		sameSite: 'strict',
+		expires:  new Date(0),
 	});
 	res.json({ message: "Logout exitoso" });
 }
@@ -116,14 +123,16 @@ export const forgotPassword = async (req, res) => {
 	if (!email) return res.status(400).json({ message: 'El email es obligatorio' });
 
 	try {
-		const user = await User.findOne({ email: email.trim().toLowerCase() }).select('_id name email disabled');
+		// Seleccionamos password para poder generar la huella del token
+		const user = await User.findOne({ email: email.trim().toLowerCase() })
+			.select('_id name email disabled password');
 
 		// Respuesta genérica para no revelar si el email existe
 		if (!user || user.disabled) {
 			return res.json({ message: 'Si el email existe, recibirás un enlace en breve' });
 		}
 
-		const resetToken = generateResetToken(user._id.toString());
+		const resetToken = generateResetToken(user._id.toString(), user.password);
 		const resetUrl   = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
 		await sendPasswordResetEmail({ to: user.email, userName: user.name, resetUrl });
@@ -136,8 +145,8 @@ export const forgotPassword = async (req, res) => {
 };
 
 export const resetPassword = async (req, res) => {
-	const { token }       = req.params;
-	const { password }    = req.body;
+	const { token }    = req.params;
+	const { password } = req.body;
 
 	if (!password || password.length < 8) {
 		return res.status(400).json({ message: 'La contraseña debe tener al menos 8 caracteres' });
@@ -150,10 +159,21 @@ export const resetPassword = async (req, res) => {
 			return res.status(400).json({ message: 'Token inválido' });
 		}
 
-		const hashedPassword = await bcrypt.hash(password, 10);
-
-		const user = await User.findByIdAndUpdate(decoded.id, { password: hashedPassword });
+		// Necesitamos el hash actual para verificar si el enlace ya fue usado
+		const user = await User.findById(decoded.id).select('+password');
 		if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+		// Si la huella del token no coincide con el hash actual, la contraseña
+		// ya fue cambiada con este mismo enlace → enlace ya utilizado
+		if (decoded.fingerprint && user.password.slice(0, 10) !== decoded.fingerprint) {
+			return res.status(400).json({
+				message: 'Este enlace ya fue utilizado. Solicita un nuevo correo para restablecer tu contraseña',
+			});
+		}
+
+		const hashedPassword = await bcrypt.hash(password, 10);
+		user.password = hashedPassword;
+		await user.save();
 
 		return res.json({ message: 'Contraseña actualizada correctamente' });
 	} catch (error) {

@@ -2,15 +2,16 @@ import multer from 'multer';
 import PDFDocument from 'pdfkit';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import mongoose from 'mongoose';
 import Request from '../models/requestModel.js';
 import User from '../models/userModel.js';
 import Epp from '../models/eppModel.js';
 import Warehouse from '../models/warehouseModel.js';
-import { sendRequestEmail } from '../helpers/mailer.js';
+import { sendRequestEmail, sendOutOfStockEmail } from '../helpers/mailer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
-const LOGO_PATH  = path.join(__dirname, '..', '..', '..', 'frontend', 'public', 'kaltire.png');
+const LOGO_PATH  = path.join(__dirname, '..', '..', 'public', 'kaltire.png');
 
 const ALLOWED_MIME = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 const MAX_IMAGES   = 5;
@@ -175,16 +176,40 @@ export const getRequests = async (req, res) => {
         const warehouseId = req.query.warehouse;
         const employeeId  = req.query.employee;
         const reason      = req.query.reason;
+        const status      = req.query.status;
+
+        // Obtener rol y bodega asignada del usuario autenticado (provistos por authMiddleware)
+        const userRole = req.userRole;
 
         const filter = {};
-        if (warehouseId) filter.warehouse = warehouseId;
         if (reason) filter.reason = reason;
-        // When filtering by employee, allow only own requests (unless warehouse admin view)
-        if (employeeId) {
-            if (employeeId !== req.userId.toString()) {
-                return res.status(403).json({ message: 'No puedes ver solicitudes de otros usuarios' });
+        if (status) filter.status = status;
+
+        if (userRole === 'Trabajador') {
+            filter.employee = req.userId;
+        } else if (userRole === 'Jefatura') {
+            if (employeeId && employeeId !== req.userId.toString()) {
+                // Verificar que el empleado tiene a este jefe como aprobador
+                const bossId = new mongoose.Types.ObjectId(req.userId);
+                const emp = await User.findOne({ _id: employeeId, 'bosses._id': bossId }).select('_id').lean();
+                if (!emp) return res.status(403).json({ message: 'No tienes acceso a las solicitudes de este empleado' });
+                filter.employee = employeeId;
+            } else {
+                filter.employee = req.userId;
             }
-            filter.employee = employeeId;
+        } else if (userRole === 'Encargado de Bodega') {
+            // Solo pueden ver solicitudes de su bodega asignada, ignorar el query param de warehouse
+            if (!req.userWarehouse) {
+                return res.status(403).json({ message: 'No tienes una bodega asignada' });
+            }
+            filter.warehouse = req.userWarehouse;
+        } else if (userRole === 'Administrador') {
+            // Acceso completo: puede filtrar por cualquier bodega o empleado
+            if (warehouseId) filter.warehouse = warehouseId;
+            if (employeeId)  filter.employee  = employeeId;
+        } else {
+            // Rol desconocido: solo sus propias solicitudes por seguridad
+            filter.employee = req.userId;
         }
 
         if (search) {
@@ -200,7 +225,7 @@ export const getRequests = async (req, res) => {
 
         const total    = await Request.countDocuments(filter);
         const requests = await Request.find(filter)
-            .populate('employee', 'name')
+            .populate('employee', 'name sizes')
             .populate('approver', 'name')
             .populate('epps.epp', 'name code')
             .sort({ date: -1 })
@@ -220,11 +245,140 @@ export const getRequests = async (req, res) => {
     }
 };
 
+// PATCH /api/requests/:id/deliver
+export const deliverRequest = async (req, res) => {
+    try {
+        const userRole = req.userRole;
+
+        if (userRole !== 'Encargado de Bodega') {
+            return res.status(403).json({ message: 'No tienes permisos para registrar entregas' });
+        }
+
+        const request = await Request.findById(req.params.id);
+
+        if (!request) {
+            return res.status(404).json({ message: 'Solicitud no encontrada' });
+        }
+
+        if (!['Aprobada', 'Sin Stock'].includes(request.status)) {
+            return res.status(400).json({ message: 'Solo se pueden entregar solicitudes Aprobadas o con Sin Stock' });
+        }
+
+        const user = await User.findById(req.userId).select('warehouses');
+        if (user.warehouses?.toString() !== request.warehouse?.toString()) {
+            return res.status(403).json({ message: 'No tienes permiso para entregar en esta bodega' });
+        }
+
+        request.status       = 'Entregada';
+        request.deliveryDate = new Date();
+        request.stock        = 'Con Stock';
+        await request.save();
+
+        res.json(request);
+    } catch (error) {
+        console.error('Error al registrar entrega:', error);
+        res.status(500).json({ message: 'Error al registrar la entrega' });
+    }
+};
+
+// PATCH /api/requests/:id/no-stock
+export const reportNoStock = async (req, res) => {
+    try {
+        if (req.userRole !== 'Encargado de Bodega') {
+            return res.status(403).json({ message: 'No tienes permisos para registrar falta de stock' });
+        }
+
+        const { expectedDate } = req.body;
+        if (!expectedDate) {
+            return res.status(400).json({ message: 'La fecha estimada de stock es obligatoria' });
+        }
+
+        const parsedDate = new Date(expectedDate);
+        if (isNaN(parsedDate.getTime()) || parsedDate <= new Date()) {
+            return res.status(400).json({ message: 'La fecha estimada debe ser una fecha futura válida' });
+        }
+
+        const request = await Request.findById(req.params.id)
+            .populate('employee', 'name email')
+            .populate('epps.epp', 'name');
+
+        if (!request) {
+            return res.status(404).json({ message: 'Solicitud no encontrada' });
+        }
+
+        if (request.status !== 'Aprobada') {
+            return res.status(400).json({ message: 'Solo se puede reportar sin stock en solicitudes Aprobadas' });
+        }
+
+        const user = await User.findById(req.userId).select('warehouses');
+        if (user.warehouses?.toString() !== request.warehouse?.toString()) {
+            return res.status(403).json({ message: 'No tienes permiso para gestionar esta bodega' });
+        }
+
+        request.status            = 'Sin Stock';
+        request.stock             = 'Sin Stock';
+        request.expectedStockDate = parsedDate;
+        await request.save();
+
+        res.json(request);
+
+        // Enviar correo al empleado de forma asíncrona
+        if (request.employee?.email) {
+            sendOutOfStockEmail({
+                request,
+                employeeName:      request.employee.name,
+                employeeEmail:     request.employee.email,
+                expectedDate:      parsedDate,
+            }).catch(err => console.error('[mailer] Error al enviar correo sin stock:', err));
+        }
+    } catch (error) {
+        console.error('Error al reportar sin stock:', error);
+        res.status(500).json({ message: 'Error al reportar la falta de stock' });
+    }
+};
+
+// PATCH /api/requests/:id/annul
+export const annulRequest = async (req, res) => {
+    try {
+        if (req.userRole !== 'Encargado de Bodega') {
+            return res.status(403).json({ message: 'No tienes permisos para anular solicitudes' });
+        }
+
+        const { reason } = req.body;
+        if (!reason || reason.trim().length < 5) {
+            return res.status(400).json({ message: 'Debe indicar un motivo de anulación (mínimo 5 caracteres)' });
+        }
+
+        const request = await Request.findById(req.params.id);
+
+        if (!request) {
+            return res.status(404).json({ message: 'Solicitud no encontrada' });
+        }
+
+        if (!['Pendiente', 'Aprobada', 'Sin Stock'].includes(request.status)) {
+            return res.status(400).json({ message: 'Solo se pueden solicitar cambios en solicitudes Pendientes, Aprobadas o Sin Stock' });
+        }
+
+        const user = await User.findById(req.userId).select('warehouses');
+        if (user.warehouses?.toString() !== request.warehouse?.toString()) {
+            return res.status(403).json({ message: 'No tienes permiso para gestionar esta bodega' });
+        }
+
+        request.status      = 'Cambios solicitados';
+        request.annulReason = reason.trim();
+        await request.save();
+
+        res.json(request);
+    } catch (error) {
+        console.error('Error al anular solicitud:', error);
+        res.status(500).json({ message: 'Error al anular la solicitud' });
+    }
+};
+
 // DELETE /api/requests/:id
 export const deleteRequest = async (req, res) => {
     try {
-        const user = await User.findById(req.userId).select('rol role');
-        const userRole = user?.rol || user?.role;
+        const userRole = req.userRole;
         if (userRole !== 'Administrador') {
             return res.status(403).json({ message: 'No tienes permisos para eliminar solicitudes' });
         }

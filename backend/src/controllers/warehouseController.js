@@ -1,4 +1,5 @@
 import Warehouse from '../models/warehouseModel.js';
+import User from '../models/userModel.js';
 
 const PAGE_SIZE = 10;
 
@@ -32,6 +33,32 @@ export const getWarehouses = async (req, res) => {
     } catch (error) {
         console.error('Error al obtener warehouses:', error);
         res.status(500).json({ message: 'Error al obtener las bodegas' });
+    }
+};
+
+// GET /api/warehouses/my — devuelve la bodega asignada al usuario autenticado
+export const getMyWarehouse = async (req, res) => {
+    try {
+        const user = await User.findById(req.userId).select('warehouses').lean();
+
+        if (!user) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        if (!user.warehouses) {
+            return res.status(404).json({ message: 'No tienes una bodega asignada' });
+        }
+
+        const warehouse = await Warehouse.findById(user.warehouses);
+
+        if (!warehouse) {
+            return res.status(404).json({ message: 'Bodega asignada no encontrada' });
+        }
+
+        res.json(warehouse);
+    } catch (error) {
+        console.error('Error al obtener bodega del usuario:', error);
+        res.status(500).json({ message: 'Error al obtener la bodega' });
     }
 };
 

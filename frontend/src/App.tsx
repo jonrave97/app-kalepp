@@ -4,6 +4,7 @@ import LoginPage from './pages/auth/LoginPage.tsx'; //Pagina del login
 import NotFoundPage from './common/NotFoundPage.tsx';
 import ForgotPassword from './pages/auth/ForgotPasswordPage.tsx';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage.tsx';
+import ActivateAccountPage from './pages/auth/ActivateAccountPage.tsx';
 import AppLayout from './components/template/appLayout.tsx';
 import DashboardPage from './pages/DashboardPage.tsx';
 import ProfilePage from './pages/ProfilePage.tsx';
@@ -13,16 +14,20 @@ import WarehousesPage from './pages/WarehousesPage.tsx';
 import WarehouseDetailPage from './pages/WarehouseDetailPage.tsx';
 import CategoriesPage from './pages/CategoriesPage.tsx';
 import EppsPage from './pages/EppsPage.tsx';
-import NewRequestPage from './pages/NewRequestPage.tsx';
+import RequestFormPage from './pages/RequestFormPage.tsx';
 import MyRequestsPage from './pages/MyRequestsPage.tsx';
 import MyKitRequestsPage from './pages/MyKitRequestsPage.tsx';
-import NewSpecialRequestPage from './pages/NewSpecialRequestPage.tsx';
 import KitsPage from './pages/KitsPage.tsx';
 import KitRequestPage from './pages/KitRequestPage.tsx';
 import { ProtectedRoute } from './guards/ProtectedRoute.tsx';
 import { PublicRoute } from './guards/PublicRoute.tsx';
 import { AdminRoute } from './guards/AdminRoute.tsx';
 import { HRRoute } from './guards/HRRoute.tsx';
+import { WarehouseRoute } from './guards/WarehouseRoute.tsx';
+import { JefaturaRoute } from './guards/JefaturaRoute.tsx';
+import MyWarehousePage from './pages/MyWarehousePage.tsx';
+import MyTeamPage from './pages/MyTeamPage.tsx';
+import ReportsPage from './pages/ReportsPage.tsx';
 import { ErrorBoundary } from './common/ErrorBoundary.tsx';
 
 
@@ -49,6 +54,7 @@ function App() {
           {/* Definimos ruta pública para recuperar contraseña */}
           <Route path='/forgot-password' element={<ForgotPassword />} />
           <Route path='/reset-password/:token' element={<ResetPasswordPage />} />
+          <Route path='/activate/:token' element={<ActivateAccountPage />} />
 
           {/*Layout protegido - protege todas las rutas hijas */}
           <Route
@@ -63,7 +69,7 @@ function App() {
             {/* Definimos rutas protegidas con layout */}
             <Route
               path='/dashboard'
-              element={<DashboardPage />}
+              element={<AdminRoute><DashboardPage /></AdminRoute>}
             />
             <Route 
               path='/admin/users'
@@ -95,11 +101,11 @@ function App() {
             />
             <Route
               path='/newrequest'
-              element={<NewRequestPage />}
+              element={<RequestFormPage mode="normal" />}
             />
             <Route
               path='/requests/new-special'
-              element={<NewSpecialRequestPage />}
+              element={<RequestFormPage mode="special" />}
             />
             <Route
               path='/my-requests'
@@ -112,6 +118,21 @@ function App() {
             <Route
               path='/requests/kit-request'
               element={<HRRoute><KitRequestPage /></HRRoute>}
+            />
+
+            <Route
+              path='/my-warehouse'
+              element={<WarehouseRoute><MyWarehousePage /></WarehouseRoute>}
+            />
+
+            <Route
+              path='/my-team'
+              element={<JefaturaRoute><MyTeamPage /></JefaturaRoute>}
+            />
+
+            <Route
+              path='/reports'
+              element={<AdminRoute><ReportsPage /></AdminRoute>}
             />
 
             {/*My Profile */}

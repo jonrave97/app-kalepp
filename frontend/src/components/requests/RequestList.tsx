@@ -7,18 +7,23 @@ import { downloadRequestPdf } from '@/services/requestServices';
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 export function StatusBadge({ status }: { status: string }) {
     const styles: Record<string, string> = {
-        Pendiente:            'bg-yellow-100 text-yellow-700',
-        Aprobada:             'bg-blue-100 text-blue-700',
+        Pendiente:             'bg-yellow-100 text-yellow-700',
+        Aprobada:              'bg-blue-100 text-blue-700',
         'Cambios solicitados': 'bg-red-100 text-red-700',
-        Entregado:            'bg-green-100 text-green-700',
-        Rechazada:            'bg-red-100 text-red-700',
-        Entregada:            'bg-green-100 text-green-700',
+        'Cambios Solicitados': 'bg-red-100 text-red-700',
+        Entregado:             'bg-green-100 text-green-700',
+        Rechazada:             'bg-red-100 text-red-700',
+        Entregada:             'bg-green-100 text-green-700',
     };
     return (
         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${styles[status] ?? 'bg-gray-100 text-gray-600'}`}>
             {status}
         </span>
     );
+}
+
+function resolveWorkerStatus(status: string): string {
+    return status === 'Rechazada' ? 'Cambios solicitados' : status;
 }
 
 export function formatDate(dateStr: string): string {
@@ -42,6 +47,7 @@ interface RequestListProps {
     onPageChange: (page: number) => void;
     searchPlaceholder?: string;
     emptyMessage?: string;
+    workerView?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -59,6 +65,7 @@ export function RequestList({
     onPageChange,
     searchPlaceholder = 'Buscar por código…',
     emptyMessage = 'No se encontraron solicitudes',
+    workerView = false,
 }: RequestListProps) {
     const [selectedRequest, setSelectedRequest] = useState<AdminRequest | null>(null);
 
@@ -130,7 +137,7 @@ export function RequestList({
                                     <tr key={req._id} className="hover:bg-gray-50 transition-colors">
                                         <td className="px-6 py-4 font-mono text-gray-800">#{req.code}</td>
                                         <td className="px-6 py-4 text-gray-600">{formatDate(req.date)}</td>
-                                        <td className="px-6 py-4"><StatusBadge status={req.status} /></td>
+                                        <td className="px-6 py-4"><StatusBadge status={workerView ? resolveWorkerStatus(req.status) : req.status} /></td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="inline-flex items-center gap-1">
                                                 <button

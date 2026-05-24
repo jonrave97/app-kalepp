@@ -36,6 +36,7 @@ function MyKitRequestsPage() {
             onPageChange={handlePageChange}
             searchPlaceholder="Buscar por código…"
             emptyMessage="No se encontraron solicitudes de kit inicial"
+            workerView
         />
     );
 }

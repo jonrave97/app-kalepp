@@ -2,6 +2,15 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { resetPassword } from '@/services/authServices';
 
+const EXPIRED_MESSAGES = [
+    'El enlace ha expirado',
+    'Este enlace ya fue utilizado',
+];
+
+function isExpiredError(message: string) {
+    return EXPIRED_MESSAGES.some(m => message.includes(m));
+}
+
 function ResetPasswordPage() {
     const { token }             = useParams<{ token: string }>();
     const navigate              = useNavigate();
@@ -10,6 +19,7 @@ function ResetPasswordPage() {
     const [loading, setLoading]         = useState(false);
     const [error, setError]             = useState('');
     const [success, setSuccess]         = useState(false);
+    const [expired, setExpired]         = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -21,8 +31,16 @@ function ResetPasswordPage() {
             setError('');
             await resetPassword(token!, password);
             setSuccess(true);
-        } catch (err: any) {
-            setError(err.response?.data?.message || 'Error al restablecer la contraseña');
+        } catch (err: unknown) {
+            const message: string =
+                err instanceof Error && 'response' in err
+                    ? (err as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Error al restablecer la contraseña'
+                    : 'Error al restablecer la contraseña';
+            if (isExpiredError(message)) {
+                setExpired(true);
+            } else {
+                setError(message);
+            }
         } finally {
             setLoading(false);
         }
@@ -36,61 +54,82 @@ function ResetPasswordPage() {
                 </div>
 
                 <div className="bg-white shadow-2xl rounded-xl px-8 py-10">
-                    <div className="text-center mb-8">
-                        <h1 className="text-2xl font-bold text-gray-900 mb-2">Nueva contraseña</h1>
-                        <p className="text-gray-600">
-                            {success
-                                ? 'Tu contraseña fue actualizada correctamente.'
-                                : 'Ingresa tu nueva contraseña.'}
-                        </p>
-                    </div>
-
-                    {!success ? (
-                        <form className="space-y-5" onSubmit={handleSubmit}>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Nueva contraseña
-                                </label>
-                                <input
-                                    type="password"
-                                    placeholder="Mínimo 8 caracteres"
-                                    value={password}
-                                    onChange={e => { setPassword(e.target.value); setError(''); }}
-                                    autoComplete="new-password"
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition duration-200"
-                                />
+                    {expired ? (
+                        <div className="text-center space-y-4">
+                            <div className="flex justify-center">
+                                <span className="text-5xl">🔗</span>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Confirmar contraseña
-                                </label>
-                                <input
-                                    type="password"
-                                    placeholder="Repite la contraseña"
-                                    value={confirm}
-                                    onChange={e => { setConfirm(e.target.value); setError(''); }}
-                                    autoComplete="new-password"
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition duration-200"
-                                />
-                                {error && <p className="mt-1.5 text-sm text-red-500">{error}</p>}
-                            </div>
+                            <h1 className="text-2xl font-bold text-gray-900">Enlace expirado</h1>
+                            <p className="text-gray-500 text-sm">
+                                Este enlace ya no es válido. Puede que haya sido utilizado anteriormente
+                                o que haya superado su tiempo de validez.
+                            </p>
                             <button
-                                type="submit"
-                                disabled={loading}
-                                className="btn-primary w-full bg-primary text-white font-semibold py-3 px-4 rounded-lg transition duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                                onClick={() => navigate('/forgot-password')}
+                                className="btn-primary w-full bg-primary text-white font-semibold py-3 px-4 rounded-lg transition duration-200 cursor-pointer mt-2"
                             >
-                                {loading ? 'Guardando...' : 'Cambiar contraseña'}
-                            </button>
-                        </form>
-                    ) : (
-                        <div className="text-center mt-2">
-                            <button
-                                onClick={() => navigate('/login')}
-                                className="btn-primary bg-primary text-white font-semibold py-3 px-8 rounded-lg transition duration-200 cursor-pointer"
-                            >
-                                Ir al inicio de sesión
+                                Solicitar nuevo enlace
                             </button>
                         </div>
+                    ) : (
+                        <>
+                            <div className="text-center mb-8">
+                                <h1 className="text-2xl font-bold text-gray-900 mb-2">Nueva contraseña</h1>
+                                <p className="text-gray-600">
+                                    {success
+                                        ? 'Tu contraseña fue actualizada correctamente.'
+                                        : 'Ingresa tu nueva contraseña.'}
+                                </p>
+                            </div>
+
+                            {!success ? (
+                                <form className="space-y-5" onSubmit={handleSubmit}>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Nueva contraseña
+                                        </label>
+                                        <input
+                                            type="password"
+                                            placeholder="Mínimo 8 caracteres"
+                                            value={password}
+                                            onChange={e => { setPassword(e.target.value); setError(''); }}
+                                            autoComplete="new-password"
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition duration-200"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Confirmar contraseña
+                                        </label>
+                                        <input
+                                            type="password"
+                                            placeholder="Repite la contraseña"
+                                            value={confirm}
+                                            onChange={e => { setConfirm(e.target.value); setError(''); }}
+                                            autoComplete="new-password"
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition duration-200"
+                                        />
+                                        {error && <p className="mt-1.5 text-sm text-red-500">{error}</p>}
+                                    </div>
+                                    <button
+                                        type="submit"
+                                        disabled={loading}
+                                        className="btn-primary w-full bg-primary text-white font-semibold py-3 px-4 rounded-lg transition duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                                    >
+                                        {loading ? 'Guardando...' : 'Cambiar contraseña'}
+                                    </button>
+                                </form>
+                            ) : (
+                                <div className="text-center mt-2">
+                                    <button
+                                        onClick={() => navigate('/login')}
+                                        className="btn-primary bg-primary text-white font-semibold py-3 px-8 rounded-lg transition duration-200 cursor-pointer"
+                                    >
+                                        Ir al inicio de sesión
+                                    </button>
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             </div>
